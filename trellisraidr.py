@@ -718,7 +718,7 @@ def find_best_trellis_frequency(scan_data):
         context += f"- Frequency: {freq_mhz:.3f} MHz, Power: {power_dbm:.1f} dBm, Bandwidth: {bandwidth_hz/1e6:.3f} MHz\n"
 
     query = f"""
-    Given the following TrellisWare radio specifications and detected signals, determine the best center frequency (in MHz) for the radio to operate with minimal interference. Provide only the recommended frequency as a number with three decimal places (e.g., 123.456).
+    Given the following TrellisWare radio specifications and detected signals, determine the best center frequency (in MHz) for the radio to operate with minimal interference. Return only a single number with three decimal places (e.g., 123.456), nothing else. If no suitable frequency is found, return 'N/A'.
 
     {trellis_specs}
 
@@ -730,18 +730,19 @@ def find_best_trellis_frequency(scan_data):
         response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
-                {"role": "system", "content": "You are a SIGINT analyst tasked with finding the best frequency for a TrellisWare radio based on interference data."},
+                {"role": "system", "content": "You are a SIGINT analyst tasked with finding the best frequency for a TrellisWare radio based on interference data. Provide only a single number with three decimal places (e.g., 123.456) or 'N/A' if no frequency is suitable, with no additional text."},
                 {"role": "user", "content": query}
             ],
-            max_tokens=10,  # Expecting a short numeric response
-            temperature=0.3  # Low temperature for precise output
+            max_tokens=10,  # Expecting a short numeric response or 'N/A'
+            temperature=0.2  # Lower temperature for strict adherence
         )
         freq_response = response.choices[0].message.content.strip()
         
-        # Validate the response is a number
+        # Validate the response
+        if freq_response == "N/A":
+            return None, "No suitable frequency found by AI."
         try:
             recommended_freq = float(freq_response)
-            # Check if the frequency is within TrellisWare ranges
             valid_ranges = [(225, 450), (698, 970), (1250, 2600)]
             if any(start <= recommended_freq <= end for start, end in valid_ranges):
                 return recommended_freq, None
@@ -838,7 +839,6 @@ def main():
                 selected_scans = st.multiselect("Select scans for analysis", options=list(scan_options.keys()), default=list(scan_options.keys()))
                 selected_scan_data = [scan_options[scan] for scan in selected_scans]
     
-    # Add the new "Trellis" tab
     tab1, tab2, tab3, tab4 = st.tabs(["Spectrum Analyzer", "Tactical SIGINT", "Advanced Analysis", "Trellis"])
     
     if st.session_state.active_tab == 0:
@@ -1028,14 +1028,13 @@ def main():
             scan_data = scan["scan_data"]
             
             st.subheader("Analyzing Spectrum for TrellisWare Radio")
-            if st.button("Recommend Frequency"):
-                with st.spinner("Analyzing interference with GPT-4 Turbo..."):
-                    recommended_freq, error_message = find_best_trellis_frequency(scan_data)
-                    if recommended_freq is not None:
-                        st.markdown(f'<div class="lime-green">{recommended_freq:.3f}</div>', unsafe_allow_html=True)
-                        st.success(f"Recommended Center Channel: {recommended_freq:.3f} MHz")
-                    else:
-                        st.error(error_message)
+            with st.spinner("Analyzing interference with GPT-4 Turbo..."):
+                recommended_freq, error_message = find_best_trellis_frequency(scan_data)
+                if recommended_freq is not None:
+                    st.markdown(f'<div class="lime-green">{recommended_freq:.3f}</div>', unsafe_allow_html=True)
+                    st.success(f"Recommended Center Channel: {recommended_freq:.3f} MHz")
+                else:
+                    st.error(error_message)
             
             st.subheader("Scan Data Summary")
             signals = scan_data.get("detected_signals", [])
