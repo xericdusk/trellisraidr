@@ -1173,9 +1173,11 @@ def main():
                     with st.expander("Enter Coordinates Manually", expanded=True):
                         col1, col2 = st.columns(2)
                         with col1:
-                            manual_lat = st.number_input("Latitude", value=st.session_state.get('lat', 0.0), format="%f")
+                            default_lat = 0.0 if st.session_state.lat is None else st.session_state.lat
+                            manual_lat = st.number_input("Latitude", value=default_lat, format="%f")
                         with col2:
-                            manual_lon = st.number_input("Longitude", value=st.session_state.get('lon', 0.0), format="%f")
+                            default_lon = 0.0 if st.session_state.lon is None else st.session_state.lon
+                            manual_lon = st.number_input("Longitude", value=default_lon, format="%f")
                         if st.button("Save Coordinates"):
                             st.session_state.lat = manual_lat
                             st.session_state.lon = manual_lon
@@ -1183,7 +1185,7 @@ def main():
                             st.rerun()
                 
                 # Process new location and signal data
-                if 'lat' in st.session_state and 'lon' in st.session_state:
+                if 'lat' in st.session_state and 'lon' in st.session_state and st.session_state.lat is not None and st.session_state.lon is not None:
                     current_location = (st.session_state.lat, st.session_state.lon)
                     current_signal_strength = selected_signal.get('power_dbm', 0)
                     
