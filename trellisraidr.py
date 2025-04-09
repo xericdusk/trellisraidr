@@ -799,6 +799,12 @@ def main():
             'last_heading': None,
             'getting_hotter': None
         }
+    if 'lat' not in st.session_state:
+        st.session_state.lat = None
+    if 'lon' not in st.session_state:
+        st.session_state.lon = None
+    if 'show_manual_entry' not in st.session_state:
+        st.session_state.show_manual_entry = False
     
     with st.sidebar:
         st.header("Scan Controls")
@@ -1072,28 +1078,68 @@ def main():
             scan_data = scan["scan_data"]
             signals = scan_data.get("detected_signals", [])
             
-            # JavaScript for getting geolocation
+            # JavaScript for getting geolocation - improved for iOS compatibility
             st.markdown("""
             <script>
             function getLocation() {
                 if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(function(position) {
-                        const lat = position.coords.latitude;
-                        const lon = position.coords.longitude;
-                        window.parent.postMessage({type: 'streamlit:setComponentValue', value: {lat: lat, lon: lon}}, '*');
-                    });
+                    // iOS specific options to ensure prompt appears
+                    const options = {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    };
+                    
+                    navigator.geolocation.getCurrentPosition(
+                        function(position) {
+                            // Success callback
+                            const lat = position.coords.latitude;
+                            const lon = position.coords.longitude;
+                            // Send to Streamlit
+                            window.parent.postMessage({type: 'streamlit:setComponentValue', value: {lat: lat, lon: lon}}, '*');
+                            console.log('Location obtained:', lat, lon);
+                            document.getElementById('geo-status').innerText = 'Location obtained: ' + lat.toFixed(6) + ', ' + lon.toFixed(6);
+                        },
+                        function(error) {
+                            // Error callback
+                            console.error('Geolocation error:', error.code, error.message);
+                            let errorMsg = '';
+                            switch(error.code) {
+                                case error.PERMISSION_DENIED:
+                                    errorMsg = 'Location permission denied. Please enable location services for this website in your device settings.';
+                                    break;
+                                case error.POSITION_UNAVAILABLE:
+                                    errorMsg = 'Location information unavailable. Try again or check device settings.';
+                                    break;
+                                case error.TIMEOUT:
+                                    errorMsg = 'Location request timed out. Please try again.';
+                                    break;
+                                default:
+                                    errorMsg = 'Unknown error occurred getting location.';
+                            }
+                            document.getElementById('geo-status').innerText = errorMsg;
+                        },
+                        options
+                    );
+                } else {
+                    document.getElementById('geo-status').innerText = 'Geolocation not supported by this browser.';
                 }
             }
             
             // Call getLocation when page loads
-            window.addEventListener('load', getLocation);
+            document.addEventListener('DOMContentLoaded', function() {
+                // Slight delay to ensure DOM is fully loaded on iOS
+                setTimeout(getLocation, 500);
+            });
             
             // Add button click handler
             window.updateLocation = function() {
+                document.getElementById('geo-status').innerText = 'Requesting location...';
                 getLocation();
             }
             </script>
-            <button onclick="updateLocation()" style="display:none;" id="update-location-btn">Update Location</button>
+            <button onclick="updateLocation()" id="update-location-hidden" style="display:none;">Update Location</button>
+            <div id="geo-status" style="color: #888; font-size: 12px; margin-top: 5px;">Waiting for location...</div>
             """, unsafe_allow_html=True)
             
             # Signal selection
@@ -1112,10 +1158,29 @@ def main():
                 st.write(f"Signal Type: {selected_signal.get('type', 'unknown')}")
                 st.write(f"Current Power: {selected_signal.get('power_dbm', 0)} dBm")
                 
-                # Manual location update button
-                if st.button("Update My Location"):
-                    st.markdown("<script>document.getElementById('update-location-btn').click();</script>", unsafe_allow_html=True)
-                    st.info("Requesting location update...")
+                # Manual location update button with more visibility for iOS
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    if st.button("Update My Location", use_container_width=True):
+                        st.markdown("<script>document.getElementById('update-location-hidden').click();</script>", unsafe_allow_html=True)
+                with col2:
+                    # Manual coordinate entry option for testing or if geolocation fails
+                    if st.button("Manual Entry", use_container_width=True):
+                        st.session_state.show_manual_entry = True
+                
+                # Manual coordinate entry form
+                if st.session_state.get('show_manual_entry', False):
+                    with st.expander("Enter Coordinates Manually", expanded=True):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            manual_lat = st.number_input("Latitude", value=st.session_state.get('lat', 0.0), format="%f")
+                        with col2:
+                            manual_lon = st.number_input("Longitude", value=st.session_state.get('lon', 0.0), format="%f")
+                        if st.button("Save Coordinates"):
+                            st.session_state.lat = manual_lat
+                            st.session_state.lon = manual_lon
+                            st.session_state.show_manual_entry = False
+                            st.rerun()
                 
                 # Process new location and signal data
                 if 'lat' in st.session_state and 'lon' in st.session_state:
