@@ -18,6 +18,7 @@ import tempfile
 import cv2  # For image processing
 import gdown  # For downloading files from Google Drive
 import math  # For bearing and distance calculations
+import re  # For parsing DMS coordinates
 
 # Set page config
 st.set_page_config(
@@ -1185,6 +1186,21 @@ def main():
                 # Manual coordinate entry form
                 if st.session_state.get('show_manual_entry', False):
                     with st.expander("Enter Coordinates Manually", expanded=True):
+                        # Option to paste DMS format coordinates
+                        st.subheader("Paste DMS Format Coordinates")
+                        dms_input = st.text_input("Paste coordinates (e.g., 36°45′34″ N  75°57′0″ W)")
+                        if dms_input and st.button("Parse DMS Coordinates"):
+                            lat, lon = parse_dms_coordinates(dms_input)
+                            if lat is not None and lon is not None:
+                                st.session_state.lat = lat
+                                st.session_state.lon = lon
+                                st.success(f"Parsed coordinates: {lat:.6f}, {lon:.6f}")
+                                st.session_state.show_manual_entry = False
+                                st.rerun()
+                            else:
+                                st.error("Could not parse coordinates. Please check the format and try again.")
+                        
+                        st.subheader("Or Enter Decimal Coordinates")
                         col1, col2 = st.columns(2)
                         with col1:
                             default_lat = 0.0 if st.session_state.lat is None else st.session_state.lat
@@ -1192,7 +1208,7 @@ def main():
                         with col2:
                             default_lon = 0.0 if st.session_state.lon is None else st.session_state.lon
                             manual_lon = st.number_input("Longitude", value=default_lon, format="%f")
-                        if st.button("Save Coordinates"):
+                        if st.button("Save Decimal Coordinates"):
                             st.session_state.lat = manual_lat
                             st.session_state.lon = manual_lon
                             st.session_state.show_manual_entry = False
@@ -1270,6 +1286,100 @@ def main():
                 st.info("No signals detected in this scan.")
         else:
             st.info("No scans available for Ghost Hunter. Please upload a file (PNG, JSON, JSONL, CSV) or provide a valid Google Drive shareable link.")
+
+# Parse DMS (Degrees, Minutes, Seconds) coordinates to decimal degrees
+def parse_dms_coordinates(dms_str):
+    """Parse coordinates in DMS format like '36°45′34″ N  75°57′0″ W' to decimal degrees"""
+    try:
+        # Extract numbers and directions using simpler approach
+        # First, normalize the input string
+        normalized = dms_str.replace('\u00b0', '°').replace('\u2032', '′').replace('\u2033', '″')
+        
+        # Split into latitude and longitude parts
+        parts = re.split(r'\s+', normalized)
+        
+        # Extract the relevant parts
+        lat_parts = []
+        lon_parts = []
+        lat_dir = None
+        lon_dir = None
+        
+        for part in parts:
+            if 'N' in part or 'S' in part:
+                lat_dir = 'N' if 'N' in part else 'S'
+                lat_parts.append(part.replace('N', '').replace('S', ''))
+            elif 'E' in part or 'W' in part:
+                lon_dir = 'E' if 'E' in part else 'W'
+                lon_parts.append(part.replace('E', '').replace('W', ''))
+            elif '°' in part and not lat_parts:
+                lat_parts.append(part)
+            elif '°' in part and lat_parts:
+                lon_parts.append(part)
+        
+        # If we couldn't identify the parts properly, try a different approach
+        if not (lat_parts and lon_parts and lat_dir and lon_dir):
+            # Try to extract using regex for the common format
+            match = re.search(r'(\d+)°(\d+)′(\d+)″\s*([NS])\s+(\d+)°(\d+)′(\d+)″\s*([EW])', normalized)
+            if match:
+                lat_deg, lat_min, lat_sec, lat_dir, lon_deg, lon_min, lon_sec, lon_dir = match.groups()
+                lat = float(lat_deg) + float(lat_min)/60 + float(lat_sec)/3600
+                lon = float(lon_deg) + float(lon_min)/60 + float(lon_sec)/3600
+                
+                # Apply direction
+                if lat_dir.upper() == 'S':
+                    lat = -lat
+                if lon_dir.upper() == 'W':
+                    lon = -lon
+                    
+                return lat, lon
+            return None, None
+        
+        # Process latitude
+        lat_str = ''.join(lat_parts)
+        lat_deg, lat_min, lat_sec = 0, 0, 0
+        
+        deg_match = re.search(r'(\d+)°', lat_str)
+        if deg_match:
+            lat_deg = int(deg_match.group(1))
+            
+        min_match = re.search(r'(\d+)′', lat_str)
+        if min_match:
+            lat_min = int(min_match.group(1))
+            
+        sec_match = re.search(r'(\d+)″', lat_str)
+        if sec_match:
+            lat_sec = int(sec_match.group(1))
+        
+        # Process longitude
+        lon_str = ''.join(lon_parts)
+        lon_deg, lon_min, lon_sec = 0, 0, 0
+        
+        deg_match = re.search(r'(\d+)°', lon_str)
+        if deg_match:
+            lon_deg = int(deg_match.group(1))
+            
+        min_match = re.search(r'(\d+)′', lon_str)
+        if min_match:
+            lon_min = int(min_match.group(1))
+            
+        sec_match = re.search(r'(\d+)″', lon_str)
+        if sec_match:
+            lon_sec = int(sec_match.group(1))
+        
+        # Convert to decimal degrees
+        lat = float(lat_deg) + float(lat_min)/60 + float(lat_sec)/3600
+        lon = float(lon_deg) + float(lon_min)/60 + float(lon_sec)/3600
+        
+        # Apply direction
+        if lat_dir.upper() == 'S':
+            lat = -lat
+        if lon_dir.upper() == 'W':
+            lon = -lon
+            
+        return lat, lon
+    except Exception as e:
+        print(f"Error parsing DMS coordinates: {e}")
+        return None, None
 
 # Calculate bearing between two points (lat1, lon1) and (lat2, lon2)
 def calculate_bearing(point1, point2):
