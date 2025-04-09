@@ -1093,98 +1093,105 @@ def main():
             scan_data = scan["scan_data"]
             signals = scan_data.get("detected_signals", [])
             
-            # JavaScript for getting geolocation - enhanced for iOS compatibility
+            # JavaScript for getting geolocation - simplified direct approach
             st.markdown("""
             <script>
+            // Simple direct geolocation function similar to the example
             function getLocation() {
                 if (navigator.geolocation) {
-                    // Update status
-                    document.getElementById('geo-status').innerText = 'Requesting location...';
+                    document.getElementById('geo-status').innerHTML = 'Requesting location...';
                     document.getElementById('geo-status').style.color = '#FFA500';
                     
-                    // iOS specific options to ensure prompt appears
-                    const options = {
+                    // Simple call with options for iOS
+                    navigator.geolocation.getCurrentPosition(showPosition, showError, {
                         enableHighAccuracy: true,
                         timeout: 15000,
                         maximumAge: 0
-                    };
-                    
-                    navigator.geolocation.getCurrentPosition(
-                        function(position) {
-                            // Success callback
-                            const lat = position.coords.latitude;
-                            const lon = position.coords.longitude;
-                            const accuracy = position.coords.accuracy;
-                            
-                            // Send to Streamlit - try multiple methods for better compatibility
-                            // Method 1: Standard postMessage
-                            window.parent.postMessage({type: 'streamlit:setComponentValue', value: {lat: lat, lon: lon}}, '*');
-                            
-                            // Method 2: Store in localStorage as fallback
-                            localStorage.setItem('streamlitGeoLocation', JSON.stringify({lat: lat, lon: lon}));
-                            
-                            // Update status with success message
-                            document.getElementById('geo-status').innerText = 'Location obtained: ' + lat.toFixed(6) + ', ' + lon.toFixed(6) + ' (accuracy: ' + accuracy.toFixed(1) + 'm)';
-                            document.getElementById('geo-status').style.color = '#4CAF50';
-                            
-                            // Create a clickable link to open coordinates in maps
-                            const mapLink = document.createElement('div');
-                            mapLink.innerHTML = '<a href="https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lon + '" target="_blank" style="color: #2196F3; text-decoration: underline; margin-top: 5px;">View on map</a>';
-                            document.getElementById('geo-status').appendChild(mapLink);
-                            
-                            // Force a page reload to ensure Streamlit gets the location
-                            setTimeout(function() {
-                                window.location.reload();
-                            }, 1000);
-                        },
-                        function(error) {
-                            // Error callback
-                            console.error('Geolocation error:', error.code, error.message);
-                            let errorMsg = '';
-                            switch(error.code) {
-                                case error.PERMISSION_DENIED:
-                                    errorMsg = 'Location permission denied. Please enable location services for this website in your browser settings. On iOS, go to Settings > Safari > Location Services.';
-                                    break;
-                                case error.POSITION_UNAVAILABLE:
-                                    errorMsg = 'Location information unavailable. Try again or check device settings.';
-                                    break;
-                                case error.TIMEOUT:
-                                    errorMsg = 'Location request timed out. Please try again.';
-                                    break;
-                                default:
-                                    errorMsg = 'Unknown error occurred getting location: ' + error.message;
-                            }
-                            document.getElementById('geo-status').innerText = errorMsg;
-                            document.getElementById('geo-status').style.color = '#F44336';
-                        },
-                        options
-                    );
+                    });
                 } else {
-                    document.getElementById('geo-status').innerText = 'Geolocation not supported by this browser.';
+                    document.getElementById('geo-status').innerHTML = 'Geolocation is not supported by this browser.';
                     document.getElementById('geo-status').style.color = '#F44336';
                 }
             }
             
-            // Call getLocation when page loads
+            // Function to handle successful position
+            function showPosition(position) {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+                
+                // Display the location
+                document.getElementById('geo-status').innerHTML = 
+                    'Location obtained: ' + lat.toFixed(6) + ', ' + lon.toFixed(6) + 
+                    ' (accuracy: ' + accuracy.toFixed(1) + 'm)<br>' +
+                    '<a href="https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lon + '" ' +
+                    'target="_blank" style="color: #2196F3; text-decoration: underline;">View on map</a>';
+                document.getElementById('geo-status').style.color = '#4CAF50';
+                
+                // Store in session storage for Streamlit to access
+                sessionStorage.setItem('userLatitude', lat);
+                sessionStorage.setItem('userLongitude', lon);
+                
+                // Send to Streamlit via postMessage
+                window.parent.postMessage({
+                    type: 'streamlit:setComponentValue', 
+                    value: {lat: lat, lon: lon}
+                }, '*');
+                
+                // Create hidden form fields to ensure data is passed
+                const latField = document.createElement('input');
+                latField.type = 'hidden';
+                latField.id = 'lat-field';
+                latField.value = lat;
+                document.body.appendChild(latField);
+                
+                const lonField = document.createElement('input');
+                lonField.type = 'hidden';
+                lonField.id = 'lon-field';
+                lonField.value = lon;
+                document.body.appendChild(lonField);
+                
+                // Force reload after a short delay
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1000);
+            }
+            
+            // Function to handle errors
+            function showError(error) {
+                let errorMessage = '';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = 'Location permission denied. Please enable location services for this website in your browser settings. On iOS, go to Settings > Safari > Location Services.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = 'Location information unavailable. Try again or check device settings.';
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = 'Location request timed out. Please try again.';
+                        break;
+                    default:
+                        errorMessage = 'Unknown error occurred: ' + error.message;
+                }
+                document.getElementById('geo-status').innerHTML = errorMessage;
+                document.getElementById('geo-status').style.color = '#F44336';
+                console.error('Geolocation error:', error);
+            }
+            
+            // Call getLocation when page loads (with delay for iOS)
             document.addEventListener('DOMContentLoaded', function() {
-                // Slight delay to ensure DOM is fully loaded on iOS
                 setTimeout(getLocation, 1000);
             });
             
-            // Add button click handler
-            window.updateLocation = function() {
-                getLocation();
-            }
-            
-            // Also try to request location when the page becomes visible
+            // Add visibility change handler
             document.addEventListener('visibilitychange', function() {
                 if (!document.hidden) {
                     setTimeout(getLocation, 500);
                 }
             });
             </script>
-            <button onclick="updateLocation()" id="update-location-hidden" style="display:none;">Update Location</button>
-            <div id="geo-status" style="color: #888; font-size: 14px; margin: 10px 0; padding: 10px; border-radius: 5px; background-color: #f8f9fa;">Initializing location services...</div>
+            <button onclick="getLocation()" id="get-location-btn" style="padding: 10px 15px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">Get My Location</button>
+            <div id="geo-status" style="color: #888; font-size: 14px; margin: 10px 0; padding: 10px; border-radius: 5px; background-color: #f8f9fa;">Click the button to get your location.</div>
             """, unsafe_allow_html=True)
             
             # Signal selection
@@ -1207,7 +1214,7 @@ def main():
                 col1, col2 = st.columns([3, 1])
                 with col1:
                     if st.button("Update My Location", key="update_location_btn", use_container_width=True):
-                        st.markdown("<script>document.getElementById('update-location-hidden').click();</script>", unsafe_allow_html=True)
+                        st.markdown("<script>getLocation();</script>", unsafe_allow_html=True)
                         st.info("Requesting location... Please allow location access if prompted. On iOS, make sure to grant permission when prompted.")
                 with col2:
                     # Manual coordinate entry option for testing or if geolocation fails
