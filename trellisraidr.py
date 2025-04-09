@@ -1093,169 +1093,138 @@ def main():
             scan_data = scan["scan_data"]
             signals = scan_data.get("detected_signals", [])
             
-            # JavaScript for getting geolocation - simplified direct approach
+            # Simple JavaScript for getting geolocation
             st.markdown("""
             <script>
-            // Simple direct geolocation function similar to the example
             function getLocation() {
                 if (navigator.geolocation) {
                     document.getElementById('geo-status').innerHTML = 'Requesting location...';
-                    document.getElementById('geo-status').style.color = '#FFA500';
-                    
-                    // Simple call with options for iOS
-                    navigator.geolocation.getCurrentPosition(showPosition, showError, {
-                        enableHighAccuracy: true,
-                        timeout: 15000,
-                        maximumAge: 0
-                    });
+                    navigator.geolocation.getCurrentPosition(showPosition, showError);
                 } else {
                     document.getElementById('geo-status').innerHTML = 'Geolocation is not supported by this browser.';
-                    document.getElementById('geo-status').style.color = '#F44336';
                 }
             }
             
-            // Function to handle successful position
             function showPosition(position) {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
-                const accuracy = position.coords.accuracy;
                 
                 // Display the location
                 document.getElementById('geo-status').innerHTML = 
-                    'Location obtained: ' + lat.toFixed(6) + ', ' + lon.toFixed(6) + 
-                    ' (accuracy: ' + accuracy.toFixed(1) + 'm)<br>' +
-                    '<a href="https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lon + '" ' +
-                    'target="_blank" style="color: #2196F3; text-decoration: underline;">View on map</a>';
-                document.getElementById('geo-status').style.color = '#4CAF50';
+                    'Location: ' + lat.toFixed(6) + ', ' + lon.toFixed(6);
                 
-                // Store in session storage for Streamlit to access
-                sessionStorage.setItem('userLatitude', lat);
-                sessionStorage.setItem('userLongitude', lon);
-                
-                // Send to Streamlit via postMessage
+                // Send to Streamlit
                 window.parent.postMessage({
                     type: 'streamlit:setComponentValue', 
                     value: {lat: lat, lon: lon}
                 }, '*');
                 
-                // Create hidden form fields to ensure data is passed
-                const latField = document.createElement('input');
-                latField.type = 'hidden';
-                latField.id = 'lat-field';
-                latField.value = lat;
-                document.body.appendChild(latField);
-                
-                const lonField = document.createElement('input');
-                lonField.type = 'hidden';
-                lonField.id = 'lon-field';
-                lonField.value = lon;
-                document.body.appendChild(lonField);
-                
                 // Force reload after a short delay
                 setTimeout(function() {
                     window.location.reload();
-                }, 1000);
+                }, 500);
             }
             
-            // Function to handle errors
             function showError(error) {
-                let errorMessage = '';
-                switch(error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMessage = 'Location permission denied. Please enable location services for this website in your browser settings. On iOS, go to Settings > Safari > Location Services.';
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMessage = 'Location information unavailable. Try again or check device settings.';
-                        break;
-                    case error.TIMEOUT:
-                        errorMessage = 'Location request timed out. Please try again.';
-                        break;
-                    default:
-                        errorMessage = 'Unknown error occurred: ' + error.message;
-                }
-                document.getElementById('geo-status').innerHTML = errorMessage;
-                document.getElementById('geo-status').style.color = '#F44336';
-                console.error('Geolocation error:', error);
+                document.getElementById('geo-status').innerHTML = 'Unable to retrieve your location. Please try again or enter coordinates manually.';
             }
             
-            // Call getLocation when page loads (with delay for iOS)
+            // Try to get location when page loads
             document.addEventListener('DOMContentLoaded', function() {
-                setTimeout(getLocation, 1000);
-            });
-            
-            // Add visibility change handler
-            document.addEventListener('visibilitychange', function() {
-                if (!document.hidden) {
-                    setTimeout(getLocation, 500);
-                }
+                setTimeout(getLocation, 500);
             });
             </script>
-            <button onclick="getLocation()" id="get-location-btn" style="padding: 10px 15px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">Get My Location</button>
-            <div id="geo-status" style="color: #888; font-size: 14px; margin: 10px 0; padding: 10px; border-radius: 5px; background-color: #f8f9fa;">Click the button to get your location.</div>
+            <div id="geo-status" style="color: #888; font-size: 14px;">Initializing location...</div>
             """, unsafe_allow_html=True)
             
             # Signal selection
             if signals:
-                signal_options = [f"{signal.get('frequency', 0) / 1e6:.3f} MHz - {signal.get('type', 'unknown')} ({signal.get('power_dbm', 0)} dBm)" for signal in signals]
-                selected_signal_idx = st.selectbox("Select Signal to Track", range(len(signal_options)), format_func=lambda x: signal_options[x])
+                st.subheader("Target Signal")
                 
-                # Store selected signal in session state
-                if st.session_state.ghost_hunter_data['selected_signal'] != selected_signal_idx:
-                    st.session_state.ghost_hunter_data['selected_signal'] = selected_signal_idx
+                # Check if we already have a target frequency in session state
+                if 'target_freq' in st.session_state and st.session_state.target_freq is not None:
+                    current_target = st.session_state.target_freq
+                    st.success(f"Currently tracking: {current_target:.6f} MHz")
+                    if st.button("Reset Target"):
+                        st.session_state.target_freq = None
+                        st.experimental_rerun()
+                else:  # No target selected yet
+                    if signals:
+                        signal_options = [f"{s['frequency']:.6f} MHz - SNR: {s['snr']:.1f} dB" for s in signals]
+                        selected_signal = st.selectbox("Select a signal to track", signal_options)
+                        if selected_signal:
+                            selected_idx = signal_options.index(selected_signal)
+                            target_signal = signals[selected_idx]
+                            target_freq = target_signal["frequency"]
+                            st.session_state.target_freq = target_freq
+                            st.success(f"Now tracking signal at {target_freq:.6f} MHz")
+                    else:
+                        st.info("No signals detected in this scan.")
+                        # Allow manual frequency entry
+                        target_freq = st.number_input("Enter target frequency (MHz)", value=100.0, format="%f")
+                        if st.button("Set as Target"):
+                            st.session_state.target_freq = target_freq
+                            st.success(f"Now tracking frequency: {target_freq:.6f} MHz")
                 
-                # Display selected signal info
-                selected_signal = signals[selected_signal_idx]
-                st.subheader("Target Signal Information")
-                st.write(f"Frequency: {selected_signal.get('frequency', 0) / 1e6:.3f} MHz")
-                st.write(f"Signal Type: {selected_signal.get('type', 'unknown')}")
-                st.write(f"Current Power: {selected_signal.get('power_dbm', 0)} dBm")
-                
-                # Manual location update button with more visibility for iOS
-                col1, col2 = st.columns([3, 1])
+                # Simple location interface with one button and manual entry field
+                col1, col2 = st.columns([1, 1])
                 with col1:
-                    if st.button("Update My Location", key="update_location_btn", use_container_width=True):
+                    if st.button("Get My Location", use_container_width=True):
                         st.markdown("<script>getLocation();</script>", unsafe_allow_html=True)
-                        st.info("Requesting location... Please allow location access if prompted. On iOS, make sure to grant permission when prompted.")
-                with col2:
-                    # Manual coordinate entry option for testing or if geolocation fails
-                    if st.button("Manual Entry", use_container_width=True):
-                        st.session_state.show_manual_entry = True
+                        st.info("Requesting location...")
                 
-                # Manual coordinate entry form
-                if st.session_state.get('show_manual_entry', False):
-                    with st.expander("Enter Coordinates Manually", expanded=True):
-                        # Option to paste DMS format coordinates
-                        st.subheader("Paste DMS Format Coordinates")
-                        dms_input = st.text_input("Paste coordinates (e.g., 36°45′34″ N  75°57′0″ W)")
-                        if dms_input and st.button("Parse DMS Coordinates"):
-                            lat, lon = parse_dms_coordinates(dms_input)
-                            if lat is not None and lon is not None:
-                                st.session_state.lat = lat
-                                st.session_state.lon = lon
-                                st.success(f"Parsed coordinates: {lat:.6f}, {lon:.6f}")
-                                st.session_state.show_manual_entry = False
-                                st.rerun()
+                with col2:
+                    # Simple text input for manual coordinates
+                    coord_input = st.text_input("Or enter coordinates manually", 
+                                          placeholder="37.123, -122.456 or 37° 46' 42\" N, 122° 24' 55\" W")
+                    
+                    if coord_input and coord_input.strip():
+                        try:
+                            # Try to parse as decimal first
+                            if ',' in coord_input:
+                                parts = coord_input.split(',')
+                                if len(parts) == 2:
+                                    try:
+                                        lat = float(parts[0].strip())
+                                        lon = float(parts[1].strip())
+                                        current_location = [lat, lon]
+                                        st.session_state.current_location = current_location
+                                        st.success(f"Location updated to: {lat:.6f}, {lon:.6f}")
+                                    except ValueError:
+                                        # If not decimal, try DMS format
+                                        try:
+                                            lat, lon = parse_dms_coordinates(coord_input)
+                                            current_location = [lat, lon]
+                                            st.session_state.current_location = current_location
+                                            st.success(f"Location updated to: {lat:.6f}, {lon:.6f}")
+                                        except Exception:
+                                            st.error("Invalid coordinate format. Please use decimal (37.123, -122.456) or DMS format.")
                             else:
-                                st.error("Could not parse coordinates. Please check the format and try again.")
-                        
-                        st.subheader("Or Enter Decimal Coordinates")
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            default_lat = 0.0 if st.session_state.lat is None else st.session_state.lat
-                            manual_lat = st.number_input("Latitude", value=default_lat, format="%f")
-                        with col2:
-                            default_lon = 0.0 if st.session_state.lon is None else st.session_state.lon
-                            manual_lon = st.number_input("Longitude", value=default_lon, format="%f")
-                        if st.button("Save Decimal Coordinates"):
-                            st.session_state.lat = manual_lat
-                            st.session_state.lon = manual_lon
-                            st.session_state.show_manual_entry = False
-                            st.rerun()
+                                # Try DMS format
+                                try:
+                                    lat, lon = parse_dms_coordinates(coord_input)
+                                    current_location = [lat, lon]
+                                    st.session_state.current_location = current_location
+                                    st.success(f"Location updated to: {lat:.6f}, {lon:.6f}")
+                                except Exception:
+                                    st.error("Invalid coordinate format. Please use decimal (37.123, -122.456) or DMS format.")
+                        except Exception as e:
+                            st.error(f"Error parsing coordinates: {str(e)}")
                 
                 # Process new location and signal data
-                if 'lat' in st.session_state and 'lon' in st.session_state and st.session_state.lat is not None and st.session_state.lon is not None:
-                    current_location = (st.session_state.lat, st.session_state.lon)
-                    current_signal_strength = selected_signal.get('power_dbm', 0)
+                if 'current_location' in st.session_state and st.session_state.current_location is not None:
+                    current_location = st.session_state.current_location
+                    
+                    # Get the target frequency from session state
+                    if 'target_freq' in st.session_state and st.session_state.target_freq is not None:
+                        target_freq = st.session_state.target_freq
+                        
+                        # Find the signal closest to our target frequency
+                        if signals:
+                            closest_signal = min(signals, key=lambda s: abs(s['frequency'] - target_freq))
+                            current_signal_strength = closest_signal.get('snr', 0)
+                        else:
+                            current_signal_strength = 0
                     
                     # Add to tracking history if it's a new location
                     if not st.session_state.ghost_hunter_data['locations'] or current_location != st.session_state.ghost_hunter_data['locations'][-1]:
