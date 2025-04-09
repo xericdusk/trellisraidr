@@ -17,6 +17,7 @@ import requests
 import tempfile
 import cv2  # For image processing
 import gdown  # For downloading files from Google Drive
+import math  # For bearing and distance calculations
 
 # Set page config
 st.set_page_config(
@@ -790,6 +791,14 @@ def main():
         st.session_state.advanced_analysis_data = {'tactical_response': '', 'additional_question': ''}
     if 'advanced_chat_history' not in st.session_state:
         st.session_state.advanced_chat_history = []
+    if 'ghost_hunter_data' not in st.session_state:
+        st.session_state.ghost_hunter_data = {
+            'selected_signal': None,
+            'locations': [],
+            'signal_strengths': [],
+            'last_heading': None,
+            'getting_hotter': None
+        }
     
     with st.sidebar:
         st.header("Scan Controls")
@@ -839,7 +848,7 @@ def main():
                 selected_scans = st.multiselect("Select scans for analysis", options=list(scan_options.keys()), default=list(scan_options.keys()))
                 selected_scan_data = [scan_options[scan] for scan in selected_scans]
     
-    tab1, tab2, tab3, tab4 = st.tabs(["Spectrum Analyzer", "Tactical SIGINT", "Advanced Analysis", "Trellis"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Spectrum Analyzer", "Tactical SIGINT", "Advanced Analysis", "Trellis", "Ghost Hunter"])
     
     if st.session_state.active_tab == 0:
         active_tab = tab1
@@ -847,8 +856,10 @@ def main():
         active_tab = tab2
     elif st.session_state.active_tab == 2:
         active_tab = tab3
-    else:
+    elif st.session_state.active_tab == 3:
         active_tab = tab4
+    else:
+        active_tab = tab5
     
     with tab1:
         st.header("RF Spectrum Analysis")
@@ -1053,6 +1064,197 @@ def main():
                 st.info("No signals detected in this scan.")
         else:
             st.info("No scans available for Trellis analysis. Please upload a file (PNG, JSON, JSONL, CSV) or provide a valid Google Drive shareable link.")
+    
+    with tab5:
+        st.header("Ghost Hunter - Signal Tracking")
+        if 'selected_scan_data' in locals() and selected_scan_data:
+            scan = selected_scan_data[0]  # Use the first selected scan
+            scan_data = scan["scan_data"]
+            signals = scan_data.get("detected_signals", [])
+            
+            # JavaScript for getting geolocation
+            st.markdown("""
+            <script>
+            function getLocation() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(function(position) {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        window.parent.postMessage({type: 'streamlit:setComponentValue', value: {lat: lat, lon: lon}}, '*');
+                    });
+                }
+            }
+            
+            // Call getLocation when page loads
+            window.addEventListener('load', getLocation);
+            
+            // Add button click handler
+            window.updateLocation = function() {
+                getLocation();
+            }
+            </script>
+            <button onclick="updateLocation()" style="display:none;" id="update-location-btn">Update Location</button>
+            """, unsafe_allow_html=True)
+            
+            # Signal selection
+            if signals:
+                signal_options = [f"{signal.get('frequency', 0) / 1e6:.3f} MHz - {signal.get('type', 'unknown')} ({signal.get('power_dbm', 0)} dBm)" for signal in signals]
+                selected_signal_idx = st.selectbox("Select Signal to Track", range(len(signal_options)), format_func=lambda x: signal_options[x])
+                
+                # Store selected signal in session state
+                if st.session_state.ghost_hunter_data['selected_signal'] != selected_signal_idx:
+                    st.session_state.ghost_hunter_data['selected_signal'] = selected_signal_idx
+                
+                # Display selected signal info
+                selected_signal = signals[selected_signal_idx]
+                st.subheader("Target Signal Information")
+                st.write(f"Frequency: {selected_signal.get('frequency', 0) / 1e6:.3f} MHz")
+                st.write(f"Signal Type: {selected_signal.get('type', 'unknown')}")
+                st.write(f"Current Power: {selected_signal.get('power_dbm', 0)} dBm")
+                
+                # Manual location update button
+                if st.button("Update My Location"):
+                    st.markdown("<script>document.getElementById('update-location-btn').click();</script>", unsafe_allow_html=True)
+                    st.info("Requesting location update...")
+                
+                # Process new location and signal data
+                if 'lat' in st.session_state and 'lon' in st.session_state:
+                    current_location = (st.session_state.lat, st.session_state.lon)
+                    current_signal_strength = selected_signal.get('power_dbm', 0)
+                    
+                    # Add to tracking history if it's a new location
+                    if not st.session_state.ghost_hunter_data['locations'] or current_location != st.session_state.ghost_hunter_data['locations'][-1]:
+                        st.session_state.ghost_hunter_data['locations'].append(current_location)
+                        st.session_state.ghost_hunter_data['signal_strengths'].append(current_signal_strength)
+                    
+                    # Display current location
+                    st.subheader("Current Location")
+                    st.write(f"Latitude: {current_location[0]:.6f}")
+                    st.write(f"Longitude: {current_location[1]:.6f}")
+                    
+                    # Calculate heading if we have at least two data points
+                    if len(st.session_state.ghost_hunter_data['locations']) >= 2:
+                        heading = calculate_signal_source_heading(
+                            st.session_state.ghost_hunter_data['locations'],
+                            st.session_state.ghost_hunter_data['signal_strengths']
+                        )
+                        st.session_state.ghost_hunter_data['last_heading'] = heading
+                        
+                        # Determine if we're getting hotter or colder
+                        if len(st.session_state.ghost_hunter_data['signal_strengths']) >= 2:
+                            last_strength = st.session_state.ghost_hunter_data['signal_strengths'][-2]
+                            current_strength = st.session_state.ghost_hunter_data['signal_strengths'][-1]
+                            getting_hotter = current_strength > last_strength
+                            st.session_state.ghost_hunter_data['getting_hotter'] = getting_hotter
+                        
+                        # Display heading in large text
+                        st.subheader("Tracking Information")
+                        st.markdown(f"<h1 style='text-align: center; font-size: 72px;'>{heading:.1f}°</h1>", unsafe_allow_html=True)
+                        
+                        # Display hotter/colder indicator
+                        if st.session_state.ghost_hunter_data['getting_hotter'] is not None:
+                            if st.session_state.ghost_hunter_data['getting_hotter']:
+                                st.markdown("<h2 style='text-align: center; color: red; font-size: 48px;'>HOTTER</h2>", unsafe_allow_html=True)
+                            else:
+                                st.markdown("<h2 style='text-align: center; color: blue; font-size: 48px;'>COLDER</h2>", unsafe_allow_html=True)
+                    else:
+                        st.info("Upload another waterfall plot from a different location to calculate heading.")
+                else:
+                    st.warning("Location data not available. Please allow location access in your browser.")
+                
+                # Display tracking history
+                if st.session_state.ghost_hunter_data['locations']:
+                    with st.expander("Tracking History"):
+                        history_data = {
+                            "Location": [f"({loc[0]:.6f}, {loc[1]:.6f})" for loc in st.session_state.ghost_hunter_data['locations']],
+                            "Signal Strength (dBm)": st.session_state.ghost_hunter_data['signal_strengths']
+                        }
+                        st.dataframe(pd.DataFrame(history_data))
+                        
+                        if st.button("Reset Tracking History"):
+                            st.session_state.ghost_hunter_data['locations'] = []
+                            st.session_state.ghost_hunter_data['signal_strengths'] = []
+                            st.session_state.ghost_hunter_data['last_heading'] = None
+                            st.session_state.ghost_hunter_data['getting_hotter'] = None
+                            st.rerun()
+            else:
+                st.info("No signals detected in this scan.")
+        else:
+            st.info("No scans available for Ghost Hunter. Please upload a file (PNG, JSON, JSONL, CSV) or provide a valid Google Drive shareable link.")
+
+# Calculate bearing between two points (lat1, lon1) and (lat2, lon2)
+def calculate_bearing(point1, point2):
+    lat1, lon1 = point1
+    lat2, lon2 = point2
+    
+    # Convert to radians
+    lat1 = math.radians(lat1)
+    lon1 = math.radians(lon1)
+    lat2 = math.radians(lat2)
+    lon2 = math.radians(lon2)
+    
+    # Calculate bearing
+    y = math.sin(lon2 - lon1) * math.cos(lat2)
+    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(lon2 - lon1)
+    bearing = math.atan2(y, x)
+    
+    # Convert to degrees
+    bearing = math.degrees(bearing)
+    bearing = (bearing + 360) % 360
+    
+    return bearing
+
+# Calculate distance between two points (lat1, lon1) and (lat2, lon2) in meters
+def calculate_distance(point1, point2):
+    lat1, lon1 = point1
+    lat2, lon2 = point2
+    
+    # Radius of the Earth in meters
+    R = 6371000
+    
+    # Convert to radians
+    lat1 = math.radians(lat1)
+    lon1 = math.radians(lon1)
+    lat2 = math.radians(lat2)
+    lon2 = math.radians(lon2)
+    
+    # Haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    distance = R * c
+    
+    return distance
+
+# Calculate a heading to the estimated signal source based on multiple locations and signal strengths
+def calculate_signal_source_heading(locations, signal_strengths):
+    if len(locations) < 2 or len(signal_strengths) < 2:
+        return 0
+    
+    # Simple algorithm: find the direction where signal strength increased the most
+    max_increase = -float('inf')
+    best_heading = 0
+    
+    for i in range(1, len(locations)):
+        # Calculate heading from previous to current location
+        heading = calculate_bearing(locations[i-1], locations[i])
+        
+        # Calculate signal strength change
+        strength_change = signal_strengths[i] - signal_strengths[i-1]
+        
+        # If this movement resulted in the best signal increase, remember it
+        if strength_change > max_increase:
+            max_increase = strength_change
+            best_heading = heading
+    
+    # If signal never increased, suggest the opposite direction of our last movement
+    if max_increase <= 0 and len(locations) >= 2:
+        # Get the heading of our last movement and reverse it
+        last_heading = calculate_bearing(locations[-2], locations[-1])
+        best_heading = (last_heading + 180) % 360
+    
+    return best_heading
 
 if 'last_response' not in st.session_state:
     st.session_state.last_response = ""
