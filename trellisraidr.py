@@ -1150,12 +1150,12 @@ def main():
                         st.experimental_rerun()
                 else:  # No target selected yet
                     if signals:
-                        signal_options = [f"{s['frequency']:.6f} MHz - SNR: {s['snr']:.1f} dB" for s in signals]
+                        signal_options = [f"{s['frequency'] / 1e6:.6f} MHz - Power: {s.get('power_dbm', 0):.1f} dBm" for s in signals]
                         selected_signal = st.selectbox("Select a signal to track", signal_options)
                         if selected_signal:
                             selected_idx = signal_options.index(selected_signal)
                             target_signal = signals[selected_idx]
-                            target_freq = target_signal["frequency"]
+                            target_freq = target_signal["frequency"] / 1e6  # Convert to MHz
                             st.session_state.target_freq = target_freq
                             st.success(f"Now tracking signal at {target_freq:.6f} MHz")
                     else:
@@ -1221,8 +1221,8 @@ def main():
                         
                         # Find the signal closest to our target frequency
                         if signals:
-                            closest_signal = min(signals, key=lambda s: abs(s['frequency'] - target_freq))
-                            current_signal_strength = closest_signal.get('snr', 0)
+                            closest_signal = min(signals, key=lambda s: abs(s['frequency'] / 1e6 - target_freq))
+                            current_signal_strength = closest_signal.get('power_dbm', 0)
                         else:
                             current_signal_strength = 0
                     
