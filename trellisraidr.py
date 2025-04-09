@@ -799,6 +799,20 @@ def main():
             'last_heading': None,
             'getting_hotter': None
         }
+        
+    # Clean up any potentially corrupted location data from previous sessions
+    if 'ghost_hunter_data' in st.session_state:
+        # Filter out any location entries with None values
+        valid_locations = []
+        valid_strengths = []
+        if len(st.session_state.ghost_hunter_data['locations']) == len(st.session_state.ghost_hunter_data['signal_strengths']):
+            for i, loc in enumerate(st.session_state.ghost_hunter_data['locations']):
+                if loc and len(loc) == 2 and loc[0] is not None and loc[1] is not None:
+                    valid_locations.append(loc)
+                    valid_strengths.append(st.session_state.ghost_hunter_data['signal_strengths'][i])
+        
+        st.session_state.ghost_hunter_data['locations'] = valid_locations
+        st.session_state.ghost_hunter_data['signal_strengths'] = valid_strengths
     if 'lat' not in st.session_state:
         st.session_state.lat = None
     if 'lon' not in st.session_state:
@@ -1232,8 +1246,16 @@ def main():
                 # Display tracking history
                 if st.session_state.ghost_hunter_data['locations']:
                     with st.expander("Tracking History"):
+                        # Safely format location data, handling potential None values
+                        location_strings = []
+                        for loc in st.session_state.ghost_hunter_data['locations']:
+                            if loc[0] is not None and loc[1] is not None:
+                                location_strings.append(f"({loc[0]:.6f}, {loc[1]:.6f})")
+                            else:
+                                location_strings.append("(unknown location)")
+                                
                         history_data = {
-                            "Location": [f"({loc[0]:.6f}, {loc[1]:.6f})" for loc in st.session_state.ghost_hunter_data['locations']],
+                            "Location": location_strings,
                             "Signal Strength (dBm)": st.session_state.ghost_hunter_data['signal_strengths']
                         }
                         st.dataframe(pd.DataFrame(history_data))
