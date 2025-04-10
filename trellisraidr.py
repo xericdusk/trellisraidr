@@ -781,6 +781,19 @@ def main():
         border: 1px solid #00FF00 !important;
         box-shadow: 0 4px 8px rgba(0,255,0,0.2) !important;
     }
+    
+    /* Hide tab labels - we'll replace them with our own */
+    .tab-heading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .tab-heading img {
+        width: 24px;
+        height: 24px;
+        vertical-align: middle;
+    }
     </style>
     <script>
     function switchToTab(tabIndex) {
@@ -858,32 +871,13 @@ def main():
                 selected_scans = st.multiselect("Select scans for analysis", options=list(scan_options.keys()), default=list(scan_options.keys()))
                 selected_scan_data = [scan_options[scan] for scan in selected_scans]
     
-    # Load custom tab images
-    def get_image_base64(image_path):
-        with open(image_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    
-    # Create tabs with custom images
-    spectrum_img = get_image_base64("images/Spectrum Analyzer.png")
-    tactical_img = get_image_base64("images/Tactical SIGINT.png")
-    advanced_img = get_image_base64("images/Advanced Analysis.png")
-    trellis_img = get_image_base64("images/TrellisWare.png")
-    ghost_img = get_image_base64("images/Ghosthunter.png")
-    
-    # Create HTML for tab labels with images
-    spectrum_tab = f'<img src="data:image/png;base64,{spectrum_img}" width="24"> Spectrum Analyzer'
-    tactical_tab = f'<img src="data:image/png;base64,{tactical_img}" width="24"> Tactical SIGINT'
-    advanced_tab = f'<img src="data:image/png;base64,{advanced_img}" width="24"> Advanced Analysis'
-    trellis_tab = f'<img src="data:image/png;base64,{trellis_img}" width="24"> TrellisWare'
-    ghost_tab = f'<img src="data:image/png;base64,{ghost_img}" width="24"> Ghosthunter'
-    
-    # Create tabs with custom image labels
+    # Create tabs with text labels
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        spectrum_tab,
-        tactical_tab,
-        advanced_tab,
-        trellis_tab,
-        ghost_tab
+        "Spectrum Analyzer", 
+        "Tactical SIGINT", 
+        "Advanced Analysis", 
+        "TrellisWare", 
+        "Ghosthunter"
     ])
     
     if st.session_state.active_tab == 0:
@@ -898,7 +892,11 @@ def main():
         active_tab = tab5
     
     with tab1:
-        st.header("RF Spectrum Analysis")
+        col1, col2 = st.columns([1, 20])
+        with col1:
+            st.image("images/Spectrum Analyzer.png", width=40)
+        with col2:
+            st.header("Spectrum Analyzer")
         if 'selected_scan_data' in locals() and selected_scan_data:
             scan = selected_scan_data[0]
             scan_data = scan["scan_data"]
@@ -944,7 +942,11 @@ def main():
             st.info("No scans available for analysis. Please upload a file (PNG, JSON, JSONL, CSV) or provide a valid Google Drive shareable link.")
     
     with tab2:
-        st.header("RAIDR Tactical SIGINT Interface")
+        col1, col2 = st.columns([1, 20])
+        with col1:
+            st.image("images/Tactical SIGINT.png", width=40)
+        with col2:
+            st.header("Tactical SIGINT Analyst")
         if 'selected_scan_data' in locals() and selected_scan_data:
             context = prepare_llm_context(selected_scan_data, max_signals_per_scan=max_signals)
             
@@ -1069,7 +1071,11 @@ def main():
             st.info("No scans available for advanced analysis. Please upload a file (PNG, JSON, JSONL, CSV) or provide a valid Google Drive shareable link.")
     
     with tab4:
-        st.header("TrellisWare Frequency Recommendation")
+        col1, col2 = st.columns([1, 20])
+        with col1:
+            st.image("images/TrellisWare.png", width=40)
+        with col2:
+            st.header("TrellisWare Frequency Recommendation")
         if 'selected_scan_data' in locals() and selected_scan_data:
             scan = selected_scan_data[0]  # Use the first selected scan
             scan_data = scan["scan_data"]
@@ -1102,7 +1108,11 @@ def main():
             st.info("No scans available for TrellisWare analysis. Please upload a file (PNG, JSON, JSONL, CSV).")
     
     with tab5:
-        st.header("Ghosthunter - Signal Tracking")
+        col1, col2 = st.columns([1, 20])
+        with col1:
+            st.image("images/Ghosthunter.png", width=40)
+        with col2:
+            st.header("Ghosthunter - Signal Tracking")
         if 'selected_scan_data' in locals() and selected_scan_data:
             scan = selected_scan_data[0]  # Use the first selected scan
             scan_data = scan["scan_data"]
