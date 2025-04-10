@@ -963,45 +963,37 @@ def main():
             # Initialize session state variables
             if 'tactical_query' not in st.session_state:
                 st.session_state.tactical_query = ""
-            if 'voice_mode' not in st.session_state:
-                st.session_state.voice_mode = False
-            
-            # Voice mode toggle
-            st.session_state.voice_mode = st.checkbox("Enable Voice Mode (⌘+Space shortcut)", value=st.session_state.voice_mode)
+            if 'last_query' not in st.session_state:
+                st.session_state.last_query = ""
             
             # Voice selection
             voice_options = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
             selected_voice = st.selectbox("Select TTS Voice", voice_options, index=3)
             
-            # Help text for voice mode
-            if st.session_state.voice_mode:
-                st.info("💡 Voice mode is enabled. Click the text field below and speak your query. Press ⌘+Space (Command+Space) to activate voice input on macOS.")
-            
-            # Query input with voice mode support
+            # Query input with F5 shortcut hint
             col_query, col_clear = st.columns([3, 1])
             with col_query:
-                query = st.text_input("Enter tactical query:", value=st.session_state.tactical_query, key="text_query", 
-                                    help="Click here and press ⌘+Space to use voice input")
+                query = st.text_input("Enter tactical query (press F5 for voice, Enter to send):", 
+                                     value=st.session_state.tactical_query, 
+                                     key="text_query")
             with col_clear:
-                if st.button("New Entry"):
+                if st.button("Clear"):
                     st.session_state.tactical_query = ""
                     st.rerun()
             
-            # Update session state when query changes
-            if query != st.session_state.tactical_query:
+            # Process query when Enter is pressed (detected by query changing)
+            if query and query != st.session_state.last_query:
                 st.session_state.tactical_query = query
-            
-            # Send query button
-            if st.button("Send Query"):
-                if query:
+                st.session_state.last_query = query
+                
+                if query.strip():
                     with st.spinner(f"RAIDR processing with {selected_model}..."):
                         response = query_chatgpt(query, context)
                         st.session_state.last_response = response
                         st.session_state.show_response = True
                         
-                        # Auto-play response if voice mode is enabled
-                        if st.session_state.voice_mode:
-                            text_to_speech(response, selected_voice)
+                        # Auto-play response
+                        text_to_speech(response, selected_voice)
             
             if st.session_state.get('show_response', False):
                 st.subheader("RAIDR Response:")
@@ -1013,10 +1005,9 @@ def main():
                         st.session_state.active_tab = 2
                         st.rerun()
                 
-                # Only show speak button if voice mode is not enabled (otherwise it auto-plays)
-                if not st.session_state.voice_mode:
-                    if st.button("Speak Response"):
-                        text_to_speech(st.session_state.last_response, selected_voice)
+                # Always show speak button to replay the response if needed
+                if st.button("Speak Response Again"):
+                    text_to_speech(st.session_state.last_response, selected_voice)
                     
             with st.expander("Signal Summary"):
                 signals_count = sum(len(scan["scan_data"].get("detected_signals", [])) for scan in selected_scan_data)
