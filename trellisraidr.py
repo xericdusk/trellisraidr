@@ -871,13 +871,13 @@ def main():
                 selected_scans = st.multiselect("Select scans for analysis", options=list(scan_options.keys()), default=list(scan_options.keys()))
                 selected_scan_data = [scan_options[scan] for scan in selected_scans]
     
-    # Create tabs with emoji icons that match the theme of the custom images
+    # Create tabs with text labels
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📊 Spectrum Analyzer", 
-        "🔍 Tactical SIGINT", 
-        "📈 Advanced Analysis", 
-        "📡 TrellisWare", 
-        "👻 Ghosthunter"
+        "Spectrum Analyzer", 
+        "Tactical SIGINT", 
+        "Advanced Analysis", 
+        "TrellisWare", 
+        "Ghosthunter"
     ])
     
     if st.session_state.active_tab == 0:
