@@ -1093,13 +1093,23 @@ def main():
                     st.write(explanation)
                     
                     col1, col2 = st.columns(2)
+                    import os
+                    
                     if drone_detected:
                         with col1:
-                            st.image("images/Drone Detected.png", caption="Drone Detected", width=300)
-                    
+                            drone_img_path = "images/Drone Detected.png"
+                            if os.path.exists(drone_img_path):
+                                st.image(drone_img_path, caption="Drone Detected", width=300)
+                            else:
+                                st.warning("⚠️ Drone detected in signal data!")
+                            
                     if controller_detected:
                         with col2:
-                            st.image("images/Drone Controller Detected.png", caption="Drone Controller Detected", width=300)
+                            controller_img_path = "images/Drone Controller Detected.png"
+                            if os.path.exists(controller_img_path):
+                                st.image(controller_img_path, caption="Drone Controller Detected", width=300)
+                            else:
+                                st.warning("⚠️ Drone controller detected in signal data!")
             
             st.subheader("Detected Signals")
             signals = scan_data.get("detected_signals", [])
