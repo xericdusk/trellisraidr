@@ -1060,15 +1060,44 @@ def main():
                         
                         {signal_data}
                         
-                        Common drone frequencies:
-                        - Commercial drones: 2.4 GHz, 5.8 GHz
-                        - FPV drones: 5.8 GHz (5645-5945 MHz)
-                        - DJI drones: 2.4 GHz, 5.8 GHz
-                        - Military/tactical drones: 433-435 MHz, 868-870 MHz, 915-928 MHz
+                        ## Consumer & Hobby Drone Frequency Bands
                         
-                        Common drone controller frequencies:
-                        - Commercial controllers: 2.4 GHz, 5.8 GHz
-                        - RC controllers: 433-435 MHz, 868-870 MHz, 915-928 MHz
+                        | Frequency (Range) | Purpose | Typical Use Case | Notes |
+                        |-------------------|---------|------------------|-------|
+                        | 27 MHz band (26.995–27.255 MHz) | Control (one-way RC) | Older RC models, long-range ground control | Early RC cars/planes. Very long range (50–100 km possible) but narrowband analog signals. Shared with Citizen's Band (CB). Mostly obsolete for modern drones. |
+                        | 35 MHz band (~34.95–35.30 MHz) | Control (one-way RC) | Hobby RC aircraft (gliders, planes) | Dedicated to airborne model control in many EU countries (100 mW limit). Largely superseded by 2.4 GHz systems. |
+                        | 40 MHz band (40.66–41.00 MHz) | Control (one-way RC) | Hobby RC cars, boats (surface models) | Intended for ground/water model control (100 mW). Now mostly replaced by 2.4 GHz. |
+                        | 49 MHz band (49.82–49.98 MHz) | Control (one-way RC) | Toy-grade drones and R/C toys | Common in inexpensive toys. Very short range; no license needed. |
+                        | 72 MHz band (72.0–73.0 MHz) | Control (one-way RC) | Hobby RC aircraft (planes, helis) | Used in US/Canada for model aircraft with 50 specific channels. Largely phased out by 2.4 GHz systems. |
+                        | 433 MHz (433.05–434.79 MHz) | Control or telemetry | Long-range RC links, telemetry modems | In Europe, 433 MHz is a short-range device band. In the US, 433 MHz falls in the 70 cm ham band (licensed amateurs only). |
+                        | 868–870 MHz (EU sub-1 GHz) | Control or telemetry | Long-range control links (EU), FPV drone control | License-free band in Europe for ISM uses. Popular for long-range RC in EU. |
+                        | 902–928 MHz (US "900 MHz" band) | Control or telemetry | Long-range control links (US), telemetry | Unlicensed ISM band in US/Canada. Common for extending RC range on DIY drones. |
+                        | 1.2–1.3 GHz | Video downlink | Analog FPV video transmitters (long-range FPV) | Provides strong signal penetration and range for video. Not license-free in most countries. |
+                        | 2.4 GHz (2400–2483.5 MHz) | Control and video | Primary control link for most consumer drones | The most widely used band for drone controllers. Used by almost all commercial quadcopters (DJI, Autel, etc.). |
+                        | 5.8 GHz (5725–5875 MHz) | Video downlink (FPV) | FPV racing drone video feeds; HD video downlink | Very popular for analog FPV video transmission. Also used by high-end drones for digital video. |
+                        
+                        ## Military & Long-Range Drone Frequency Bands
+                        
+                        | Frequency (Range) | Purpose | Typical Use Case | Notes |
+                        |-------------------|---------|------------------|-------|
+                        | 5030–5091 MHz (5 GHz UAV band) | Control (CNPC) | Future UAS control links (civil airspace BVLOS operations) | A band dedicated for unmanned aircraft control, allocated by ITU in 2012. |
+                        | L-band (≈1–2 GHz) | Satellite control/telemetry | Large UAV beyond-line-of-sight via satellite | Some military and commercial UAVs use L-band satellite links for C2. |
+                        | S-band (≈2–4 GHz) | Line-of-sight control & data link | Medium-range military UAV datalinks | Some UAV control/data links operate in S-band for line-of-sight. |
+                        | C-band (≈4–8 GHz) | Line-of-sight high-rate data & control | Primary LOS datalink for large military UAVs | Widely used for UAV line-of-sight control and payload transmission. |
+                        | X-band (≈7–8 GHz uplink; 8–12 GHz overall) | Beyond-line-of-sight comm (satellite) | Military satellite links for UAV control/data | X-band frequencies are used by military satcom systems to communicate with UAVs over-the-horizon. |
+                        | Ku-band (≈12–18 GHz) | Beyond-line-of-sight comm (satellite) | Primary satcom for many UAVs | Many military and long-range drones rely on Ku-band satellite communications. |
+                        | Ka-band (≈26–40 GHz) | High-throughput satellite comm | Advanced UAV data links | Used in next-generation satellite systems and allows very high throughput. |
+                        
+                        Common drone frequencies summary:
+                        - Commercial drones: 2.4 GHz, 5.8 GHz
+                        - FPV drones: 5.8 GHz (5645-5945 MHz), 1.2-1.3 GHz, 2.4 GHz
+                        - DJI drones: 2.4 GHz, 5.8 GHz
+                        - Military/tactical drones: 433-435 MHz, 868-870 MHz, 915-928 MHz, 5 GHz, C-band, Ku-band
+                        
+                        Common drone controller frequencies summary:
+                        - Commercial controllers: 2.4 GHz
+                        - RC controllers: 27 MHz, 35 MHz, 40 MHz, 49 MHz, 72 MHz, 433 MHz, 868-870 MHz, 915-928 MHz
+                        - Long-range systems: 433 MHz, 868-870 MHz, 915-928 MHz
                         
                         Respond with 'DRONE DETECTED' if you detect drone signals, 'CONTROLLER DETECTED' if you detect controller signals, 'BOTH DETECTED' if you detect both, or 'NONE DETECTED' if you detect neither. Then provide a brief explanation."""
                         
