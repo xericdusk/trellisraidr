@@ -677,11 +677,11 @@ def query_advanced_analysis(query, context):
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        st.error(f"Error querying GPT-4 Turbo: {str(e)}")
+        st.error(f"Error querying RAIDR LLM: {str(e)}")
         return "Unable to process query."
 
 def find_best_trellis_frequency(scan_data):
-    """Analyze scan data and recommend the best TrellisWare frequency using GPT-4 Turbo."""
+    """Analyze scan data and recommend the best TrellisWare frequency using RAIDR LLM."""
     trellis_specs = """
     TrellisWare Radio Specifications:
     - Frequency Range:
@@ -740,7 +740,7 @@ def find_best_trellis_frequency(scan_data):
         except ValueError:
             return None, f"Invalid frequency response from AI: {freq_response}"
     except Exception as e:
-        return None, f"Error querying GPT-4 Turbo: {str(e)}"
+        return None, f"Error querying RAIDR LLM: {str(e)}"
 
 def main():
     # Display the Ghostdog logo at the top of the app
@@ -866,8 +866,11 @@ def main():
         st.subheader("Upload Scan File")
         uploaded_file = st.file_uploader("Choose a file", type=["png", "json", "jsonl", "csv"], key="file_uploader")
         
-        model_options = ["gpt-3.5-turbo", "gpt-4-turbo"]
-        selected_model = st.selectbox("Select AI Model", model_options, index=1)
+        # Model options with display names mapping to actual model names
+        model_display_to_actual = {"GPT-3.5 Turbo": "gpt-3.5-turbo", "RAIDR LLM": "gpt-4-turbo"}
+        model_display_options = list(model_display_to_actual.keys())
+        selected_model_display = st.selectbox("Select AI Model", model_display_options, index=1)
+        selected_model = model_display_to_actual[selected_model_display]
         
         limit_signals = st.checkbox("Limit number of signals for analysis", value=True)
         if limit_signals:
@@ -1076,7 +1079,7 @@ def main():
                 
             with st.expander("About Advanced Analysis"):
                 st.markdown("""
-                This tab provides access to a more conversational interface with GPT-4 Turbo, using a simple "SIGINT analyst" 
+                This tab provides access to a more conversational interface with RAIDR LLM, using a simple "SIGINT analyst" 
                 prompt without the tactical radio format constraints. You can:
                 
                 1. Send tactical responses from the SIGINT tab for deeper analysis
@@ -1093,7 +1096,7 @@ def main():
             scan_data = scan["scan_data"]
             
             st.subheader("Analyzing Spectrum for TrellisWare Radio")
-            with st.spinner("Analyzing interference with GPT-4 Turbo..."):
+            with st.spinner("Analyzing interference with RAIDR LLM..."):
                 recommended_freq, error_message = find_best_trellis_frequency(scan_data)
                 if recommended_freq is not None:
                     st.markdown(f'<div class="lime-green">{recommended_freq:.3f}</div>', unsafe_allow_html=True)
