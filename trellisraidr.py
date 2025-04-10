@@ -44,7 +44,7 @@ def load_signal_database():
         "lte_cellular": {"freq_ranges": [[700e6, 960e6], [1710e6, 2200e6], [2500e6, 2690e6]], "bandwidths": [1.4e6, 3e6, 5e6, 10e6, 15e6, 20e6], "threat_level": "low"},
         "5g_nr": {"freq_ranges": [[600e6, 6e9], [24e9, 40e9]], "bandwidths": [5e6, 10e6, 20e6, 50e6, 100e6, 200e6, 400e6], "threat_level": "low"},
         "pmr_radio": {"freq_ranges": [[440e6, 470e6]], "bandwidths": [12.5e3, 25e3], "threat_level": "low"},
-        "military_vhf_uhf": {"freq_ranges": [[30e6, 88e6], [225e6, 400e6]], "bandwidths": [25e3, 5e6, 10e6], "threat_level": "high"},
+        "tactical_radios": {"freq_ranges": [[30e6, 88e6], [225e6, 400e6]], "bandwidths": [25e3, 5e6, 10e6], "threat_level": "high"}, # Renamed from military_vhf_uhf for better speech
         "fm_radio": {"freq_ranges": [[88e6, 108e6]], "bandwidths": [200e3], "threat_level": "low"},
         "am_radio": {"freq_ranges": [[535e3, 1605e3]], "bandwidths": [10e3], "threat_level": "low"},
         "amateur_radio": {"freq_ranges": [[1.8e6, 30e6], [50e6, 54e6], [144e6, 148e6], [420e6, 450e6]], "bandwidths": [10e3, 20e3, 100e3], "threat_level": "low"},
@@ -449,6 +449,8 @@ def text_to_speech(text, voice="onyx"):
         text = re.sub(r'\bVHF\b', 'V-H-F', text)
         text = re.sub(r'\bL-UHF\b', 'L-U-H-F', text)
         text = re.sub(r'\bU-UHF\b', 'U-U-H-F', text)
+        # Replace military_vhf_uhf with tactical radios for better pronunciation
+        text = re.sub(r'military_vhf_uhf', 'tactical radios', text, flags=re.IGNORECASE)
         
         lines = text.split('\n')
         processed_text = ""
@@ -659,7 +661,7 @@ def query_chatgpt(query, context):
         response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
-                {"role": "system", "content": "You are RAIDR (pronounced 'Raider'), a tactical SIGINT analyst assistant. Respond in brief tactical radio format using NATO phonetic numbers and 'point' for decimals (e.g., 'One Two Five Point One Two Five' for 125.125 MHz). Always pronounce acronyms as individual letters with pauses between them: 'U-H-F' not 'UHF', 'V-H-F' not 'VHF'. Do not start with 'This is RAIDR' or end with 'Over and Out'."},
+                {"role": "system", "content": "You are RAIDR (pronounced 'Raider'), a tactical SIGINT analyst assistant. Respond in brief tactical radio format using NATO phonetic numbers and 'point' for decimals (e.g., 'One Two Five Point One Two Five' for 125.125 MHz). Always pronounce acronyms as individual letters with pauses between them: 'U-H-F' not 'UHF', 'V-H-F' not 'VHF'. When referring to signal types, replace 'military_vhf_uhf' with 'tactical radios' for better clarity. Do not start with 'This is RAIDR' or end with 'Over and Out'."},
                 {"role": "user", "content": f"Context:\n{context}\n\nQuery: {query}"}
             ],
             max_tokens=500,
@@ -676,7 +678,7 @@ def query_advanced_analysis(query, context):
         response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
-                {"role": "system", "content": "You are a SIGINT (Signal Intelligence) analyst. When referring to frequency bands like UHF or VHF, always spell them out as individual letters with hyphens (e.g., 'U-H-F' and 'V-H-F') for clarity."},
+                {"role": "system", "content": "You are a SIGINT (Signal Intelligence) analyst. When referring to frequency bands like UHF or VHF, always spell them out as individual letters with hyphens (e.g., 'U-H-F' and 'V-H-F') for clarity. Always refer to 'military_vhf_uhf' signals as 'tactical radios' instead."},
                 {"role": "user", "content": f"Context (scan data):\n{context}\n\nQuery: {query}"}
             ],
             max_tokens=1500,
