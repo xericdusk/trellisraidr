@@ -743,6 +743,11 @@ def find_best_trellis_frequency(scan_data):
         return None, f"Error querying GPT-4 Turbo: {str(e)}"
 
 def main():
+    # Display the Ghostdog logo at the top of the app
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image("images/ghostdog.png", use_column_width=True)
+    
     st.markdown("""
     <style>
     .main {background-color: #1E1E1E; color: #DCDCDC;}
@@ -970,14 +975,15 @@ def main():
             voice_options = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
             selected_voice = st.selectbox("Select TTS Voice", voice_options, index=3)
             
-            # Query input with F5 shortcut hint
-            col_query, col_clear = st.columns([3, 1])
-            with col_query:
-                query = st.text_input("Enter tactical query (press F5 for voice, Enter to send):", 
-                                     value=st.session_state.tactical_query, 
-                                     key="text_query")
-            with col_clear:
-                if st.button("Clear"):
+            # Query input with F5 shortcut hint and inline Clear button
+            query = st.text_input("Enter tactical query (press F5 for voice, Enter to send):", 
+                                value=st.session_state.tactical_query, 
+                                key="text_query")
+            
+            # Add Clear button on the same line
+            col1, col2, col3 = st.columns([6, 1, 6])
+            with col2:
+                if st.button("Clear", key="clear_button"):
                     st.session_state.tactical_query = ""
                     st.rerun()
             
