@@ -770,9 +770,42 @@ def detect_drones(signals):
     # Generate explanation
     explanation = ""
     if drone_detected:
-        explanation += f"Detected drone signals: {', '.join(detected_drone_types)}. "
+        # Count occurrences of each drone type
+        drone_type_counts = {}
+        for drone_type in detected_drone_types:
+            if drone_type in drone_type_counts:
+                drone_type_counts[drone_type] += 1
+            else:
+                drone_type_counts[drone_type] = 1
+        
+        # Format the output to avoid repetition
+        drone_type_summary = []
+        for drone_type, count in drone_type_counts.items():
+            if count > 1:
+                drone_type_summary.append(f"{drone_type} (x{count})")
+            else:
+                drone_type_summary.append(drone_type)
+        
+        explanation += f"Detected drone signals: {', '.join(drone_type_summary)}. "
+    
     if controller_detected:
-        explanation += f"Detected controller signals: {', '.join(detected_controller_types)}. "
+        # Count occurrences of each controller type
+        controller_type_counts = {}
+        for controller_type in detected_controller_types:
+            if controller_type in controller_type_counts:
+                controller_type_counts[controller_type] += 1
+            else:
+                controller_type_counts[controller_type] = 1
+        
+        # Format the output to avoid repetition
+        controller_type_summary = []
+        for controller_type, count in controller_type_counts.items():
+            if count > 1:
+                controller_type_summary.append(f"{controller_type} (x{count})")
+            else:
+                controller_type_summary.append(controller_type)
+        
+        explanation += f"Detected controller signals: {', '.join(controller_type_summary)}. "
     
     if not drone_detected and not controller_detected:
         explanation = "No drone or controller signals detected."
@@ -1055,44 +1088,20 @@ def main():
                         # Prepare signal data for the LLM
                         signal_data = "\n".join([f"Frequency: {signal.get('frequency', 0)/1e6} MHz, Power: {signal.get('power_dbm', 0)} dBm, Bandwidth: {signal.get('bandwidth', 0)/1e3 if 'bandwidth' in signal else 'N/A'} kHz, Type: {signal.get('type', 'unknown')}" for signal in signals])
                         
-                        # Create the prompt for drone detection
-                        drone_prompt = f"""Analyze these signal frequencies and determine if any match known drone or drone controller frequencies:
+                        # Create the prompt for drone detection with minimal context
+                        drone_prompt = f"""Analyze these signal frequencies and determine if they match known drone or controller frequencies:
                         
                         {signal_data}
                         
-                        ## Key Drone and Controller Frequencies
+                        Key drone/controller frequencies:
+                        - Consumer drone control: 2.4 GHz (primary), 433 MHz, 868-870 MHz (EU), 915 MHz (US)
+                        - FPV/video transmission: 5.8 GHz (primary), 1.2-1.3 GHz, 2.4 GHz
+                        - Military/tactical: 433-435 MHz, 5 GHz bands, L/S/C/X/Ku bands
+                        - Legacy RC: 27 MHz, 35 MHz, 40 MHz, 49 MHz, 72 MHz (mostly obsolete)
                         
-                        Consumer/Hobby Drone Control Frequencies:
-                        - 27 MHz band (26.995–27.255 MHz): Older RC models, mostly obsolete for modern drones
-                        - 35 MHz band (~34.95–35.30 MHz): Hobby RC aircraft in EU, largely superseded by 2.4 GHz
-                        - 40 MHz band (40.66–41.00 MHz): RC cars/boats, mostly replaced by 2.4 GHz
-                        - 49 MHz band (49.82–49.98 MHz): Toy-grade drones and RC toys, short range
-                        - 72 MHz band (72.0–73.0 MHz): RC aircraft in US/Canada, largely phased out
-                        - 433 MHz (433.05–434.79 MHz): Long-range RC links, telemetry in Europe
-                        - 868–870 MHz: Long-range control in EU, FPV drone control
-                        - 902–928 MHz: Long-range control in US, DIY drones, telemetry
-                        - 2.4 GHz (2400–2483.5 MHz): PRIMARY band for most consumer drone controllers
+                        Respond with ONE of these exact phrases as your first line: 'DRONE DETECTED', 'CONTROLLER DETECTED', 'BOTH DETECTED', or 'NONE DETECTED'.
                         
-                        Drone Video/Data Frequencies:
-                        - 1.2–1.3 GHz: Analog FPV video (long-range)
-                        - 2.4 GHz: Control AND video for some systems
-                        - 5.8 GHz (5725–5875 MHz): Most common for FPV video and HD downlinks
-                        
-                        Military/Professional Drone Frequencies:
-                        - 433-435 MHz, 868-870 MHz, 915-928 MHz: Tactical drone control
-                        - 5030–5091 MHz: Dedicated UAV control band
-                        - L-band (≈1–2 GHz): Satellite control for large UAVs
-                        - S-band (≈2–4 GHz): Military UAV datalinks
-                        - C-band (≈4–8 GHz): Military UAV control and payload
-                        - X-band (≈7–12 GHz): Military satellite links
-                        - Ku-band (≈12–18 GHz): Satellite communications for UAVs
-                        
-                        Most Common Frequencies Summary:
-                        - Consumer drones primarily use 2.4 GHz for control, 5.8 GHz for video
-                        - Long-range systems use 433 MHz, 868-870 MHz, or 915-928 MHz
-                        - Military systems use various bands from 433 MHz up to Ku-band
-                        
-                        Respond with 'DRONE DETECTED' if you detect drone signals, 'CONTROLLER DETECTED' if you detect controller signals, 'BOTH DETECTED' if you detect both, or 'NONE DETECTED' if you detect neither. Then provide a brief explanation."""
+                        Then provide a BRIEF explanation (2-3 sentences max) about which specific frequencies match known drone or controller bands. Be specific about which frequencies match which types of drones/controllers. DO NOT list every detected signal - just summarize the key findings."""
                         
                         # Query the LLM
                         llm_response = query_advanced_analysis(drone_prompt, {"detected_signals": signals})
