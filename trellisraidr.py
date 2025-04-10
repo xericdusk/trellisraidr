@@ -744,9 +744,9 @@ def find_best_trellis_frequency(scan_data):
 
 def main():
     # Display the Ghostdog logo at the top of the app
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.image("images/ghostdog.png", use_column_width=True)
+        st.image("images/ghostdog.png", width=150, use_container_width=False)
     
     st.markdown("""
     <style>
