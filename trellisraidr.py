@@ -30,11 +30,11 @@ st.set_page_config(
 # Handle form data for location (Ghosthunter tab)
 # This needs to be at the top of the app to capture form submissions
 try:
-    form_data = st.experimental_get_query_params()
-    if 'lat' in form_data and 'lon' in form_data:
+    # Using st.query_params instead of deprecated st.experimental_get_query_params
+    if 'lat' in st.query_params and 'lon' in st.query_params:
         try:
-            lat = float(form_data['lat'][0])
-            lon = float(form_data['lon'][0])
+            lat = float(st.query_params['lat'])
+            lon = float(st.query_params['lon'])
             if lat and lon:
                 st.session_state.current_location = [lat, lon]
         except (ValueError, TypeError):
