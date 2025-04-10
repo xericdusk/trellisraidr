@@ -773,19 +773,52 @@ def main():
     .user-message {background-color: #2D2D2D; border-left: 3px solid #00AAFF;}
     .ai-message {background-color: #333333; border-left: 3px solid #00FF00;}
     .lime-green {color: #00FF00; font-size: 48px; font-weight: bold; text-align: center;}
+    
+    /* Enhanced tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 12px;
+        padding: 12px 16px;
+        background-color: #f0f2f6;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        display: flex;
+        justify-content: space-between;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 48px;
+        white-space: pre-wrap;
+        border-radius: 8px;
+        padding: 10px 20px;
+        background-color: white;
+        border: none;
+        color: #31333F;
+        font-weight: 500;
+        margin-right: 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+        flex: 1;
+        text-align: center;
+        min-width: 120px;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #0078ff !important;
+        color: white !important;
+        box-shadow: 0 4px 8px rgba(0,120,255,0.3) !important;
+    }
     </style>
     <script>
     function switchToTab(tabIndex) {
         window.parent.postMessage({
             type: 'streamlit:setComponentValue',
             value: tabIndex
-        }, '*');
-    }
-    </script>
     """, unsafe_allow_html=True)
     
-    st.markdown('<h1 class="tactical-header">RAIDR: Tactical SIGINT Analyst</h1>', unsafe_allow_html=True)
-    
+    # Initialize session state
     if 'active_tab' not in st.session_state:
         st.session_state.active_tab = 0
     if 'advanced_analysis_data' not in st.session_state:
@@ -869,7 +902,14 @@ def main():
                 selected_scans = st.multiselect("Select scans for analysis", options=list(scan_options.keys()), default=list(scan_options.keys()))
                 selected_scan_data = [scan_options[scan] for scan in selected_scans]
     
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Spectrum Analyzer", "Tactical SIGINT", "Advanced Analysis", "Trellis", "Ghost Hunter"])
+    # Create tabs with icons for better visual distinction
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📊 Spectrum Analyzer", 
+        "🔍 Tactical SIGINT", 
+        "📈 Advanced Analysis", 
+        "🔗 Trellis", 
+        "👻 Ghost Hunter"
+    ])
     
     if st.session_state.active_tab == 0:
         active_tab = tab1
