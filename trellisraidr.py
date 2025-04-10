@@ -16,7 +16,6 @@ import re
 import requests
 import tempfile
 import cv2  # For image processing
-import gdown  # For downloading files from Google Drive
 import math  # For bearing and distance calculations
 import re  # For parsing DMS coordinates
 
@@ -79,37 +78,7 @@ def format_number(num):
     num_str = str(num)
     return " ".join(nato_numbers[char] for char in num_str if char in nato_numbers)
 
-def download_file_from_google_drive(file_url):
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.tmp') as temp_file:
-            temp_path = temp_file.name
-            gdown.download(file_url, temp_path, quiet=False)
-        
-        with open(temp_path, 'rb') as f:
-            raw_bytes = f.read()
-        
-        os.unlink(temp_path)
-        
-        if raw_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
-            file_type = "png"
-        elif raw_bytes.startswith(b'{') or raw_bytes.startswith(b'['):
-            file_type = "json"
-        elif b'\n' in raw_bytes and (b'{' in raw_bytes or b'[' in raw_bytes):
-            file_type = "jsonl"
-        elif b',' in raw_bytes and b'\n' in raw_bytes:
-            file_type = "csv"
-        else:
-            st.error("Downloaded file is not a recognized format.")
-            return None, None, None
-        
-        st.info(f"Downloaded file size: {len(raw_bytes)} bytes, detected as {file_type}")
-        
-        file_name = f"downloaded_file.{file_type}"
-        file_content = io.BytesIO(raw_bytes)
-        return file_content, file_name, raw_bytes
-    except Exception as e:
-        st.error(f"Error downloading file from Google Drive: {str(e)}")
-        return None, None, None
+# Function removed: download_file_from_google_drive
 
 def check_file_header(file, header_bytes):
     try:
@@ -858,9 +827,7 @@ def main():
     
     with st.sidebar:
         st.header("Scan Controls")
-        st.subheader("Load Scan from Google Drive Link")
-        file_url = st.text_input("Enter Google Drive shareable link to a file:", key="file_url")
-        st.subheader("Upload Local Scan File")
+        st.subheader("Upload Scan File")
         uploaded_file = st.file_uploader("Choose a file", type=["png", "json", "jsonl", "csv"], key="file_uploader")
         
         model_options = ["gpt-3.5-turbo", "gpt-4-turbo"]
@@ -874,19 +841,6 @@ def main():
             st.info("Including all signals. This may exceed token limits with large datasets.")
         
         uploaded_files = []
-        if file_url:
-            with st.spinner("Downloading file from Google Drive..."):
-                file_content, file_name, raw_bytes = download_file_from_google_drive(file_url)
-                if file_content and file_name:
-                    uploaded_file_from_drive = type('UploadedFile', (), {
-                        'read': lambda self: file_content.read(),
-                        'seek': lambda self, pos: file_content.seek(pos),
-                        'name': file_name
-                    })()
-                    file_content.seek(0)
-                    uploaded_file_from_drive.seek(0)
-                    uploaded_files.append(uploaded_file_from_drive)
-                    st.success(f"Successfully downloaded file: {file_name}")
         
         if uploaded_file is not None:
             uploaded_files.append(uploaded_file)
