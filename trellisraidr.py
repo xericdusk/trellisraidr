@@ -515,8 +515,26 @@ def text_to_speech(text, voice="onyx"):
         return False
 
 def speech_to_text():
-    st.warning("Speech-to-text is not supported in the cloud environment due to microphone access limitations.")
-    return ""
+    try:
+        r = sr.Recognizer()
+        with sr.Microphone() as source:
+            st.info("Listening... Speak now.")
+            r.adjust_for_ambient_noise(source)
+            audio = r.listen(source, timeout=5, phrase_time_limit=10)
+            st.info("Processing speech...")
+            
+        try:
+            text = r.recognize_google(audio)
+            return text
+        except sr.UnknownValueError:
+            st.error("Could not understand audio")
+            return ""
+        except sr.RequestError as e:
+            st.error(f"Could not request results; {e}")
+            return ""
+    except Exception as e:
+        st.error(f"Speech recognition error: {str(e)}")
+        return ""
 
 def plot_spectrum(scan_data):
     if scan_data.get("is_waterfall", False) or scan_data.get("is_csv", False) or scan_data.get("is_signal_array", False):
@@ -942,41 +960,48 @@ def main():
         if 'selected_scan_data' in locals() and selected_scan_data:
             context = prepare_llm_context(selected_scan_data, max_signals_per_scan=max_signals)
             
+            # Initialize session state variables
             if 'tactical_query' not in st.session_state:
                 st.session_state.tactical_query = ""
+            if 'voice_mode' not in st.session_state:
+                st.session_state.voice_mode = False
             
+            # Voice mode toggle
+            st.session_state.voice_mode = st.checkbox("Enable Voice Mode (⌘+Space shortcut)", value=st.session_state.voice_mode)
+            
+            # Voice selection
+            voice_options = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+            selected_voice = st.selectbox("Select TTS Voice", voice_options, index=3)
+            
+            # Help text for voice mode
+            if st.session_state.voice_mode:
+                st.info("💡 Voice mode is enabled. Click the text field below and speak your query. Press ⌘+Space (Command+Space) to activate voice input on macOS.")
+            
+            # Query input with voice mode support
             col_query, col_clear = st.columns([3, 1])
             with col_query:
-                query = st.text_input("Enter tactical query:", value=st.session_state.tactical_query, key="text_query")
+                query = st.text_input("Enter tactical query:", value=st.session_state.tactical_query, key="text_query", 
+                                    help="Click here and press ⌘+Space to use voice input")
             with col_clear:
                 if st.button("New Entry"):
                     st.session_state.tactical_query = ""
                     st.rerun()
             
+            # Update session state when query changes
             if query != st.session_state.tactical_query:
                 st.session_state.tactical_query = query
             
-            voice_options = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
-            selected_voice = st.selectbox("Select TTS Voice", voice_options, index=3)
-            
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button("Send Query"):
-                    if query:
-                        with st.spinner(f"RAIDR processing with {selected_model}..."):
-                            response = query_chatgpt(query, context)
-                            st.session_state.last_response = response
-                            st.session_state.show_response = True
-            with col2:
-                if st.button("Voice Query"):
-                    with st.spinner("Listening for voice query..."):
-                        voice_query = speech_to_text()
-                        if voice_query:
-                            st.success(f"Voice query detected: \"{voice_query}\"")
-                            with st.spinner(f"RAIDR processing with {selected_model}..."):
-                                response = query_chatgpt(voice_query, context)
-                                st.session_state.last_response = response
-                                st.session_state.show_response = True
+            # Send query button
+            if st.button("Send Query"):
+                if query:
+                    with st.spinner(f"RAIDR processing with {selected_model}..."):
+                        response = query_chatgpt(query, context)
+                        st.session_state.last_response = response
+                        st.session_state.show_response = True
+                        
+                        # Auto-play response if voice mode is enabled
+                        if st.session_state.voice_mode:
+                            text_to_speech(response, selected_voice)
             
             if st.session_state.get('show_response', False):
                 st.subheader("RAIDR Response:")
@@ -988,8 +1013,10 @@ def main():
                         st.session_state.active_tab = 2
                         st.rerun()
                 
-                if st.button("Speak Response"):
-                    text_to_speech(st.session_state.last_response, selected_voice)
+                # Only show speak button if voice mode is not enabled (otherwise it auto-plays)
+                if not st.session_state.voice_mode:
+                    if st.button("Speak Response"):
+                        text_to_speech(st.session_state.last_response, selected_voice)
                     
             with st.expander("Signal Summary"):
                 signals_count = sum(len(scan["scan_data"].get("detected_signals", [])) for scan in selected_scan_data)
