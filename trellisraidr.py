@@ -27,6 +27,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Handle form data for location (Ghosthunter tab)
+# This needs to be at the top of the app to capture form submissions
+try:
+    form_data = st.experimental_get_query_params()
+    if 'lat' in form_data and 'lon' in form_data:
+        try:
+            lat = float(form_data['lat'][0])
+            lon = float(form_data['lon'][0])
+            if lat and lon:
+                st.session_state.current_location = [lat, lon]
+        except (ValueError, TypeError):
+            pass  # Invalid coordinates, ignore
+except Exception as e:
+    print(f"Error processing location form data: {e}")
+
 # Configure OpenAI API
 try:
     openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -1375,6 +1390,10 @@ def main():
             scan_data = scan["scan_data"]
             signals = scan_data.get("detected_signals", [])
             
+            # Initialize location-related session state variables if not already present
+            if 'current_location' not in st.session_state:
+                st.session_state.current_location = None
+                
             # Simple JavaScript for getting geolocation
             st.markdown("""
             <script>
@@ -1395,11 +1414,19 @@ def main():
                 document.getElementById('geo-status').innerHTML = 
                     'Location: ' + lat.toFixed(6) + ', ' + lon.toFixed(6);
                 
+                // Store in localStorage first to avoid SessionInfo issues
+                localStorage.setItem('trellisraidr_lat', lat);
+                localStorage.setItem('trellisraidr_lon', lon);
+                
                 // Send to Streamlit
-                window.parent.postMessage({
-                    type: 'streamlit:setComponentValue', 
-                    value: {lat: lat, lon: lon}
-                }, '*');
+                try {
+                    window.parent.postMessage({
+                        type: 'streamlit:setComponentValue', 
+                        value: {lat: lat, lon: lon}
+                    }, '*');
+                } catch (e) {
+                    console.error('Error posting message:', e);
+                }
                 
                 // Force reload after a short delay
                 setTimeout(function() {
@@ -1452,7 +1479,45 @@ def main():
                 col1, col2 = st.columns([1, 1])
                 with col1:
                     if st.button("Get My Location", use_container_width=True):
-                        st.markdown("<script>getLocation();</script>", unsafe_allow_html=True)
+                        # Add a callback to handle location data
+                        st.markdown("""
+                        <script>
+                        // Check if we have location data in localStorage
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const storedLat = localStorage.getItem('trellisraidr_lat');
+                            const storedLon = localStorage.getItem('trellisraidr_lon');
+                            if (storedLat && storedLon) {
+                                // We have stored coordinates, update the form
+                                document.getElementById('geo-status').innerHTML = 
+                                    'Retrieved location: ' + storedLat + ', ' + storedLon;
+                                    
+                                // Create a hidden form and submit it to update the server
+                                const form = document.createElement('form');
+                                form.method = 'POST';
+                                form.action = '';
+                                form.style.display = 'none';
+                                
+                                const inputLat = document.createElement('input');
+                                inputLat.type = 'hidden';
+                                inputLat.name = 'lat';
+                                inputLat.value = storedLat;
+                                form.appendChild(inputLat);
+                                
+                                const inputLon = document.createElement('input');
+                                inputLon.type = 'hidden';
+                                inputLon.name = 'lon';
+                                inputLon.value = storedLon;
+                                form.appendChild(inputLon);
+                                
+                                document.body.appendChild(form);
+                                form.submit();
+                            }
+                        });
+                        
+                        // Request new location
+                        getLocation();
+                        </script>
+                        """, unsafe_allow_html=True)
                         st.info("Requesting location...")
                 
                 with col2:
