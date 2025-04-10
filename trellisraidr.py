@@ -774,14 +774,14 @@ def main():
     .ai-message {background-color: #333333; border-left: 3px solid #00FF00;}
     .lime-green {color: #00FF00; font-size: 48px; font-weight: bold; text-align: center;}
     
-    /* Enhanced tab styling */
+    /* Enhanced tab styling - Dark theme */
     .stTabs [data-baseweb="tab-list"] {
         gap: 12px;
         padding: 12px 16px;
-        background-color: #f0f2f6;
+        background-color: #2D2D2D; /* Dark grey background */
         border-radius: 10px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         display: flex;
         justify-content: space-between;
     }
@@ -790,12 +790,12 @@ def main():
         white-space: pre-wrap;
         border-radius: 8px;
         padding: 10px 20px;
-        background-color: white;
-        border: none;
-        color: #31333F;
+        background-color: #121212; /* Black buttons */
+        border: 1px solid #333;
+        color: #e0e0e0; /* Light grey text */
         font-weight: 500;
         margin-right: 0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         transition: all 0.2s ease;
         flex: 1;
         text-align: center;
@@ -803,12 +803,14 @@ def main():
     }
     .stTabs [data-baseweb="tab"]:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        background-color: #1a1a1a;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
     .stTabs [aria-selected="true"] {
-        background-color: #0078ff !important;
-        color: white !important;
-        box-shadow: 0 4px 8px rgba(0,120,255,0.3) !important;
+        background-color: #000000 !important; /* Pure black for selected tab */
+        color: #00FF00 !important; /* Green text for selected tab */
+        border: 1px solid #00FF00 !important;
+        box-shadow: 0 4px 8px rgba(0,255,0,0.2) !important;
     }
     </style>
     <script>
