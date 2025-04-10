@@ -858,13 +858,32 @@ def main():
                 selected_scans = st.multiselect("Select scans for analysis", options=list(scan_options.keys()), default=list(scan_options.keys()))
                 selected_scan_data = [scan_options[scan] for scan in selected_scans]
     
-    # Create tabs with icons for better visual distinction
+    # Load custom tab images
+    def get_image_base64(image_path):
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    
+    # Create tabs with custom images
+    spectrum_img = get_image_base64("images/Spectrum Analyzer.png")
+    tactical_img = get_image_base64("images/Tactical SIGINT.png")
+    advanced_img = get_image_base64("images/Advanced Analysis.png")
+    trellis_img = get_image_base64("images/TrellisWare.png")
+    ghost_img = get_image_base64("images/Ghosthunter.png")
+    
+    # Create HTML for tab labels with images
+    spectrum_tab = f'<img src="data:image/png;base64,{spectrum_img}" width="24"> Spectrum Analyzer'
+    tactical_tab = f'<img src="data:image/png;base64,{tactical_img}" width="24"> Tactical SIGINT'
+    advanced_tab = f'<img src="data:image/png;base64,{advanced_img}" width="24"> Advanced Analysis'
+    trellis_tab = f'<img src="data:image/png;base64,{trellis_img}" width="24"> TrellisWare'
+    ghost_tab = f'<img src="data:image/png;base64,{ghost_img}" width="24"> Ghosthunter'
+    
+    # Create tabs with custom image labels
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📊 Spectrum Analyzer", 
-        "🔍 Tactical SIGINT", 
-        "📈 Advanced Analysis", 
-        "🔗 Trellis", 
-        "👻 Ghost Hunter"
+        spectrum_tab,
+        tactical_tab,
+        advanced_tab,
+        trellis_tab,
+        ghost_tab
     ])
     
     if st.session_state.active_tab == 0:
@@ -1080,10 +1099,10 @@ def main():
             else:
                 st.info("No signals detected in this scan.")
         else:
-            st.info("No scans available for Trellis analysis. Please upload a file (PNG, JSON, JSONL, CSV) or provide a valid Google Drive shareable link.")
+            st.info("No scans available for TrellisWare analysis. Please upload a file (PNG, JSON, JSONL, CSV).")
     
     with tab5:
-        st.header("Ghost Hunter - Signal Tracking")
+        st.header("Ghosthunter - Signal Tracking")
         if 'selected_scan_data' in locals() and selected_scan_data:
             scan = selected_scan_data[0]  # Use the first selected scan
             scan_data = scan["scan_data"]
@@ -1288,7 +1307,7 @@ def main():
             else:
                 st.info("No signals detected in this scan.")
         else:
-            st.info("No scans available for Ghost Hunter. Please upload a file (PNG, JSON, JSONL, CSV) or provide a valid Google Drive shareable link.")
+            st.info("No scans available for Ghosthunter. Please upload a file (PNG, JSON, JSONL, CSV).")
 
 # Parse DMS (Degrees, Minutes, Seconds) coordinates to decimal degrees
 def parse_dms_coordinates(dms_str):
