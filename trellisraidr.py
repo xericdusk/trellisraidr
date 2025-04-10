@@ -688,13 +688,33 @@ def query_chatgpt(query, context):
         return "Unable to process query."
 
 def query_advanced_analysis(query, context):
+    """Query the RAIDR LLM for advanced analysis with context size management."""
     try:
+        # Limit context size to prevent token limit errors
+        context_str = ""
+        if isinstance(context, dict):
+            # For dictionaries, stringify with limits
+            for key, value in context.items():
+                if key == "detected_signals" and isinstance(value, list):
+                    # Limit number of signals to prevent context explosion
+                    limited_signals = value[:20]  # Only use first 20 signals max
+                    signals_str = json.dumps(limited_signals, indent=2)
+                    context_str += f"{key}: {signals_str}\n"
+                else:
+                    context_str += f"{key}: {str(value)[:1000]}\n"  # Limit each value to 1000 chars
+        else:
+            # For strings or other types, limit length
+            context_str = str(context)[:5000]  # Limit to 5000 chars
+            
+        # Create a more compact system message
+        system_message = "You are a SIGINT analyst. Use U-H-F, V-H-F format for bands. Call 'military_vhf_uhf' signals 'tactical radios'."
+        
         client = openai.OpenAI(api_key=openai.api_key)
         response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
-                {"role": "system", "content": "You are a SIGINT (Signal Intelligence) analyst. When referring to frequency bands like UHF or VHF, always spell them out as individual letters with hyphens (e.g., 'U-H-F' and 'V-H-F') for clarity. Always refer to 'military_vhf_uhf' signals as 'tactical radios' instead."},
-                {"role": "user", "content": f"Context (scan data):\n{context}\n\nQuery: {query}"}
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": f"Context (scan data):\n{context_str}\n\nQuery: {query}"}
             ],
             max_tokens=1500,
             temperature=0.7
