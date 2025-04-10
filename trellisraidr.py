@@ -1005,7 +1005,7 @@ def main():
                 st.session_state.last_query = query
                 
                 if query.strip():
-                    with st.spinner(f"RAIDR processing with {selected_model}..."):
+                    with st.spinner("RAIDR processing with RAIDR LLM..."):
                         response = query_chatgpt(query, context)
                         st.session_state.last_response = response
                         st.session_state.show_response = True
@@ -1053,7 +1053,7 @@ def main():
                 if st.button("Analyze This"):
                     if additional_question:
                         combined_query = f"RAIDR provided this tactical response:\n\n{tactical_resp}\n\nMy question about this: {additional_question}"
-                        with st.spinner("Analyzing..."):
+                        with st.spinner("Analyzing with RAIDR LLM..."):
                             analysis_response = query_advanced_analysis(combined_query, context)
                             st.session_state.advanced_chat_history.append({"role": "user", "content": combined_query})
                             st.session_state.advanced_chat_history.append({"role": "assistant", "content": analysis_response})
@@ -1077,7 +1077,7 @@ def main():
                 if st.button("Send for Analysis"):
                     if advanced_query:
                         st.session_state.advanced_chat_history.append({"role": "user", "content": advanced_query})
-                        with st.spinner("Analyzing..."):
+                        with st.spinner("Analyzing with RAIDR LLM..."):
                             advanced_response = query_advanced_analysis(advanced_query, context)
                             st.session_state.advanced_chat_history.append({"role": "assistant", "content": advanced_response})
                         st.rerun()
