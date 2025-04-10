@@ -443,6 +443,13 @@ def classify_signal(frequency, bandwidth):
 
 def text_to_speech(text, voice="onyx"):
     try:
+        # Pre-process text to improve pronunciation of acronyms
+        # Replace UHF and VHF with spaced versions for better pronunciation
+        text = re.sub(r'\bUHF\b', 'U-H-F', text)
+        text = re.sub(r'\bVHF\b', 'V-H-F', text)
+        text = re.sub(r'\bL-UHF\b', 'L-U-H-F', text)
+        text = re.sub(r'\bU-UHF\b', 'U-U-H-F', text)
+        
         lines = text.split('\n')
         processed_text = ""
         for line in lines:
@@ -652,7 +659,7 @@ def query_chatgpt(query, context):
         response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
-                {"role": "system", "content": "You are RAIDR (pronounced 'Raider'), a tactical SIGINT analyst assistant. Respond in brief tactical radio format using NATO phonetic numbers and 'point' for decimals (e.g., 'One Two Five Point One Two Five' for 125.125 MHz). Do not start with 'This is RAIDR' or end with 'Over and Out'."},
+                {"role": "system", "content": "You are RAIDR (pronounced 'Raider'), a tactical SIGINT analyst assistant. Respond in brief tactical radio format using NATO phonetic numbers and 'point' for decimals (e.g., 'One Two Five Point One Two Five' for 125.125 MHz). Always pronounce acronyms as individual letters with pauses between them: 'U-H-F' not 'UHF', 'V-H-F' not 'VHF'. Do not start with 'This is RAIDR' or end with 'Over and Out'."},
                 {"role": "user", "content": f"Context:\n{context}\n\nQuery: {query}"}
             ],
             max_tokens=500,
@@ -669,7 +676,7 @@ def query_advanced_analysis(query, context):
         response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
-                {"role": "system", "content": "You are a SIGINT analyst."},
+                {"role": "system", "content": "You are a SIGINT (Signal Intelligence) analyst. When referring to frequency bands like UHF or VHF, always spell them out as individual letters with hyphens (e.g., 'U-H-F' and 'V-H-F') for clarity."},
                 {"role": "user", "content": f"Context (scan data):\n{context}\n\nQuery: {query}"}
             ],
             max_tokens=1500,
@@ -685,8 +692,8 @@ def find_best_trellis_frequency(scan_data):
     trellis_specs = """
     TrellisWare Radio Specifications:
     - Frequency Range:
-      • L-UHF: 225–450 MHz
-      • U-UHF: 698–970 MHz
+      • L-U-H-F (Lower Ultra High Frequency): 225–450 MHz
+      • U-U-H-F (Upper Ultra High Frequency): 698–970 MHz
       • L/S Bands: 1250–2600 MHz
     - Bandwidth/Channel Spacing:
       • Wideband: 1.2, 3.6, 10, 20 MHz
