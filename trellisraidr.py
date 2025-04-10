@@ -689,6 +689,81 @@ def query_advanced_analysis(query, context):
         st.error(f"Error querying RAIDR LLM: {str(e)}")
         return "Unable to process query."
 
+def detect_drones(signals):
+    """Detect drones and drone controllers in the signals.
+    
+    Returns a tuple of (drone_detected, controller_detected, explanation)
+    """
+    # Common drone frequencies
+    drone_frequencies = {
+        "commercial_drone": [[2.4e9, 2.5e9], [5.7e9, 5.9e9]],  # 2.4 GHz and 5.8 GHz bands
+        "fpv_drone": [[5.645e9, 5.945e9]],  # 5.8 GHz FPV video
+        "dji_drone": [[2.4e9, 2.4835e9], [5.725e9, 5.825e9]],  # DJI specific
+        "military_drone": [[433e6, 435e6], [868e6, 870e6], [915e6, 928e6]]  # Common military/tactical frequencies
+    }
+    
+    # Common drone controller frequencies
+    controller_frequencies = {
+        "commercial_controller": [[2.4e9, 2.5e9], [5.725e9, 5.825e9]],  # 2.4 GHz and 5.8 GHz bands
+        "fpv_controller": [[433e6, 435e6], [868e6, 870e6], [915e6, 928e6]],  # Common RC control frequencies
+        "dji_controller": [[2.4e9, 2.4835e9], [5.725e9, 5.825e9]]  # DJI specific
+    }
+    
+    drone_detected = False
+    controller_detected = False
+    detected_drone_types = []
+    detected_controller_types = []
+    
+    for signal in signals:
+        freq = signal.get("frequency", 0)
+        signal_type = signal.get("type", "unknown")
+        
+        # Check if the signal type is already identified as a drone
+        if signal_type == "commercial_drone":
+            drone_detected = True
+            detected_drone_types.append("Commercial Drone")
+            continue
+        
+        # Check drone frequencies
+        for drone_type, ranges in drone_frequencies.items():
+            for freq_range in ranges:
+                if freq_range[0] <= freq <= freq_range[1]:
+                    drone_detected = True
+                    if drone_type == "commercial_drone" and "Commercial Drone" not in detected_drone_types:
+                        detected_drone_types.append("Commercial Drone")
+                    elif drone_type == "fpv_drone" and "FPV Drone" not in detected_drone_types:
+                        detected_drone_types.append("FPV Drone")
+                    elif drone_type == "dji_drone" and "DJI Drone" not in detected_drone_types:
+                        detected_drone_types.append("DJI Drone")
+                    elif drone_type == "military_drone" and "Military Drone" not in detected_drone_types:
+                        detected_drone_types.append("Military Drone")
+                    break
+        
+        # Check controller frequencies
+        for controller_type, ranges in controller_frequencies.items():
+            for freq_range in ranges:
+                if freq_range[0] <= freq <= freq_range[1]:
+                    controller_detected = True
+                    if controller_type == "commercial_controller" and "Commercial Controller" not in detected_controller_types:
+                        detected_controller_types.append("Commercial Controller")
+                    elif controller_type == "fpv_controller" and "FPV Controller" not in detected_controller_types:
+                        detected_controller_types.append("FPV Controller")
+                    elif controller_type == "dji_controller" and "DJI Controller" not in detected_controller_types:
+                        detected_controller_types.append("DJI Controller")
+                    break
+    
+    # Generate explanation
+    explanation = ""
+    if drone_detected:
+        explanation += f"Detected drone signals: {', '.join(detected_drone_types)}. "
+    if controller_detected:
+        explanation += f"Detected controller signals: {', '.join(detected_controller_types)}. "
+    
+    if not drone_detected and not controller_detected:
+        explanation = "No drone or controller signals detected."
+    
+    return drone_detected, controller_detected, explanation
+
 def find_best_trellis_frequency(scan_data):
     """Analyze scan data and recommend the best TrellisWare frequency using RAIDR LLM."""
     trellis_specs = """
@@ -891,6 +966,16 @@ def main():
         uploaded_files = []
         
         if uploaded_file is not None:
+            # Reset drone analysis when a new file is uploaded
+            if 'drone_analysis_complete' in st.session_state:
+                st.session_state.drone_analysis_complete = False
+                if 'drone_detected' in st.session_state:
+                    del st.session_state.drone_detected
+                if 'controller_detected' in st.session_state:
+                    del st.session_state.controller_detected
+                if 'drone_explanation' in st.session_state:
+                    del st.session_state.drone_explanation
+            
             uploaded_files.append(uploaded_file)
             st.success(f"Successfully uploaded file: {uploaded_file.name}")
         
@@ -939,6 +1024,82 @@ def main():
                 img_str = plot_spectrum(scan_data)
                 if img_str:
                     st.image(f"data:image/png;base64,{img_str}", use_container_width=True)
+            
+            # Drone Detector
+            signals = scan_data.get("detected_signals", [])
+            if signals:
+                # First perform basic frequency-based detection
+                drone_detected, controller_detected, explanation = detect_drones(signals)
+                
+                # Then run LLM analysis for more sophisticated detection
+                if 'drone_analysis_complete' not in st.session_state:
+                    st.session_state.drone_analysis_complete = False
+                
+                if not st.session_state.drone_analysis_complete:
+                    with st.spinner("RAIDR analyzing for drone signatures..."):
+                        # Prepare signal data for the LLM
+                        signal_data = "\n".join([f"Frequency: {signal.get('frequency', 0)/1e6} MHz, Power: {signal.get('power_dbm', 0)} dBm, Bandwidth: {signal.get('bandwidth', 0)/1e3 if 'bandwidth' in signal else 'N/A'} kHz, Type: {signal.get('type', 'unknown')}" for signal in signals])
+                        
+                        # Create the prompt for drone detection
+                        drone_prompt = f"""Analyze these signal frequencies and determine if any match known drone or drone controller frequencies:
+                        
+                        {signal_data}
+                        
+                        Common drone frequencies:
+                        - Commercial drones: 2.4 GHz, 5.8 GHz
+                        - FPV drones: 5.8 GHz (5645-5945 MHz)
+                        - DJI drones: 2.4 GHz, 5.8 GHz
+                        - Military/tactical drones: 433-435 MHz, 868-870 MHz, 915-928 MHz
+                        
+                        Common drone controller frequencies:
+                        - Commercial controllers: 2.4 GHz, 5.8 GHz
+                        - RC controllers: 433-435 MHz, 868-870 MHz, 915-928 MHz
+                        
+                        Respond with 'DRONE DETECTED' if you detect drone signals, 'CONTROLLER DETECTED' if you detect controller signals, 'BOTH DETECTED' if you detect both, or 'NONE DETECTED' if you detect neither. Then provide a brief explanation."""
+                        
+                        # Query the LLM
+                        llm_response = query_advanced_analysis(drone_prompt, {"detected_signals": signals})
+                        
+                        # Parse the LLM response
+                        llm_drone_detected = "DRONE DETECTED" in llm_response.upper() or "BOTH DETECTED" in llm_response.upper()
+                        llm_controller_detected = "CONTROLLER DETECTED" in llm_response.upper() or "BOTH DETECTED" in llm_response.upper()
+                        
+                        # Combine basic detection with LLM detection
+                        drone_detected = drone_detected or llm_drone_detected
+                        controller_detected = controller_detected or llm_controller_detected
+                        
+                        # Update explanation with LLM insights
+                        if "NONE DETECTED" not in llm_response.upper():
+                            # Extract the explanation part (after the detection statement)
+                            llm_explanation = llm_response.split(".", 1)[1].strip() if "." in llm_response else llm_response
+                            explanation += "\n\nRAIDR LLM Analysis: " + llm_explanation
+                    
+                    # Mark analysis as complete to avoid re-running
+                    st.session_state.drone_analysis_complete = True
+                    
+                    # Store results in session state
+                    st.session_state.drone_detected = drone_detected
+                    st.session_state.controller_detected = controller_detected
+                    st.session_state.drone_explanation = explanation
+                else:
+                    # Use stored results
+                    drone_detected = st.session_state.drone_detected
+                    controller_detected = st.session_state.controller_detected
+                    explanation = st.session_state.drone_explanation
+                
+                # Display results
+                if drone_detected or controller_detected:
+                    st.subheader("⚠️ Drone Detector Alert ⚠️")
+                    st.write(explanation)
+                    
+                    col1, col2 = st.columns(2)
+                    if drone_detected:
+                        with col1:
+                            st.image("images/Drone Detected.png", caption="Drone Detected", width=300)
+                    
+                    if controller_detected:
+                        with col2:
+                            st.image("images/Drone Controller Detected.png", caption="Drone Controller Detected", width=300)
             
             st.subheader("Detected Signals")
             signals = scan_data.get("detected_signals", [])
