@@ -1104,6 +1104,7 @@ def main():
             st.subheader("Scan Data Summary")
             signals = scan_data.get("detected_signals", [])
             if signals:
+                # Create DataFrame with signal data
                 signals_df = pd.DataFrame([
                     {
                         "Frequency (MHz)": signal.get("frequency", 0) / 1e6,
@@ -1113,7 +1114,72 @@ def main():
                         "Threat Level": signal.get("threat_level", "unknown")
                     } for signal in signals
                 ])
-                st.dataframe(signals_df, use_container_width=True)
+                
+                # Initialize session state for sorting if not exists
+                if 'sort_column' not in st.session_state:
+                    st.session_state.sort_column = "Frequency (MHz)"
+                if 'sort_direction' not in st.session_state:
+                    st.session_state.sort_direction = True  # True for ascending
+                
+                # Add search filter
+                search_query = st.text_input("🔍 Search signals", "", placeholder="Type to filter signals...")
+                
+                # Filter the DataFrame based on search query
+                if search_query:
+                    # Convert all columns to string for searching
+                    filtered_df = signals_df[signals_df.astype(str).apply(
+                        lambda row: row.str.contains(search_query, case=False).any(), axis=1
+                    )]
+                else:
+                    filtered_df = signals_df
+                
+                # Sort the DataFrame
+                filtered_df = filtered_df.sort_values(
+                    by=st.session_state.sort_column, 
+                    ascending=st.session_state.sort_direction
+                )
+                
+                # Display the DataFrame with sorting enabled
+                st.dataframe(
+                    filtered_df,
+                    use_container_width=True,
+                    column_config={
+                        "Frequency (MHz)": st.column_config.NumberColumn(
+                            "Frequency (MHz)",
+                            format="%.6f",
+                        ),
+                        "Power (dBm)": st.column_config.NumberColumn(
+                            "Power (dBm)",
+                            format="%.1f",
+                        ),
+                        "Bandwidth (kHz)": st.column_config.NumberColumn(
+                            "Bandwidth (kHz)",
+                            format="%.1f",
+                        ),
+                    },
+                    hide_index=True,
+                    column_order=["Frequency (MHz)", "Power (dBm)", "Bandwidth (kHz)", "Type", "Threat Level"],
+                )
+                
+                # Add sorting controls
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    sort_col = st.selectbox("Sort by", filtered_df.columns.tolist(), 
+                                          index=filtered_df.columns.tolist().index(st.session_state.sort_column))
+                    if sort_col != st.session_state.sort_column:
+                        st.session_state.sort_column = sort_col
+                        st.experimental_rerun()
+                
+                with col2:
+                    sort_dir = st.selectbox("Order", ["Ascending", "Descending"], 
+                                          index=0 if st.session_state.sort_direction else 1)
+                    new_direction = True if sort_dir == "Ascending" else False
+                    if new_direction != st.session_state.sort_direction:
+                        st.session_state.sort_direction = new_direction
+                        st.experimental_rerun()
+                
+                with col3:
+                    st.text(f"Found: {len(filtered_df)} signals")
             else:
                 st.info("No signals detected in this scan.")
         else:
